@@ -1,0 +1,36 @@
+# Source configuration for SoulSync
+# Each source defines where to find songs to download.
+#
+# Supported source types:
+#   - youtube: Sync a YouTube playlist
+#   - textfile: Read Artist - Title lines from a text file (or Artist - Album for album mode)
+#   - spotify: Sync a Spotify playlist (requires API credentials in .env)
+#   - discogs: Sync a Discogs collection or wantlist
+#
+# Source names are auto-generated (e.g., youtube:PLxxxxxx, textfile:tracks.txt)
+#
+# Note: If no sources are configured here but YOUTUBE_PLAYLIST_URL is set in .env,
+# that env var is used automatically as a backward-compatibility fallback.
+
+sources:
+  # YouTube playlist
+  # - type: youtube
+  #   playlist_url: "https://www.youtube.com/playlist?list=PLmsF11EQaCCFIT6U1pj1y6rZqQclEPJ99"
+
+  # Example: Text file with one song per line (Artist - Title)
+  # - type: textfile
+  #   path: "/config/tracks.txt"
+
+  # Example: Album text file (Artist - Album per line)
+  # - type: textfile
+  #   path: "/path/to/albums.txt"
+  #   mode: album
+
+  # Example: Spotify playlist
+  # - type: spotify
+  #   playlist_url: "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
+
+  # Example: Discogs collection
+  # - type: discogs
+  #   username: "your_discogs_username"
+  #   list_type: "collection"

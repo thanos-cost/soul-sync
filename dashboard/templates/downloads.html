@@ -1,0 +1,553 @@
+{% extends "base.html" %}
+
+{% block title %}Downloads — SoulSync{% endblock %}
+
+{% block content %}
+
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-xl font-semibold" style="color: #cdd6f4;">Downloads</h1>
+  <button id="refreshBtn" onclick="loadDownloads()"
+          class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors"
+          style="color: #a6adc8; background: #1a1a24; border: 1px solid #2a2a3c;">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    Refresh
+  </button>
+</div>
+
+{% if not configured %}
+<div class="mb-6 p-4 rounded-lg" style="background: rgba(211,134,155,0.1); border: 1px solid rgba(211,134,155,0.2);">
+  <p class="text-sm" style="color: #d3869b;">slskd connection not configured. Set SLSKD_HOST and SLSKD_API_KEY environment variables.</p>
+</div>
+{% endif %}
+
+<!-- Metric cards -->
+<div id="metricsRow" class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Downloading</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(137,180,250,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #89b4fa;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      </div>
+    </div>
+    <p id="countDownloading" class="text-2xl font-bold" style="color: #89b4fa;">—</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">active transfers</p>
+  </div>
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Queued</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(231,138,78,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #e78a4e;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+    </div>
+    <p id="countQueued" class="text-2xl font-bold" style="color: #e78a4e;">—</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">waiting for slot</p>
+  </div>
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Completed</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(125,174,163,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #7daea3;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+      </div>
+    </div>
+    <p id="countCompleted" class="text-2xl font-bold" style="color: #7daea3;">—</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">successfully fetched</p>
+  </div>
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Failed</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(211,134,155,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #d3869b;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+      </div>
+    </div>
+    <p id="countFailed" class="text-2xl font-bold" style="color: #d3869b;">—</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">need attention</p>
+  </div>
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Stuck</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(166,173,200,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #a6adc8;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+      </div>
+    </div>
+    <p id="countStuck" class="text-2xl font-bold" style="color: #a6adc8;">—</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">lost by slskd</p>
+  </div>
+</div>
+
+<!-- Filter tabs (pill-style) + search -->
+<div class="flex items-center gap-3 mb-4 flex-wrap">
+  <div id="filterTabs" class="flex items-center gap-1.5 p-1 rounded-lg w-fit" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <button data-filter="all" class="filter-tab px-3.5 py-1.5 text-sm font-medium rounded-md" style="background: #2a2a3c; color: #e78a4e;">All</button>
+    <button data-filter="downloading" class="filter-tab px-3.5 py-1.5 text-sm font-medium rounded-md" style="color: #6c7086;">Downloading</button>
+    <button data-filter="queued" class="filter-tab px-3.5 py-1.5 text-sm font-medium rounded-md" style="color: #6c7086;">Queued</button>
+    <button data-filter="completed" class="filter-tab px-3.5 py-1.5 text-sm font-medium rounded-md" style="color: #6c7086;">Completed</button>
+    <button data-filter="failed" class="filter-tab px-3.5 py-1.5 text-sm font-medium rounded-md" style="color: #6c7086;">Failed</button>
+  </div>
+  <input id="searchInput" type="text" placeholder="Search file, user, source..."
+         class="text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
+         style="background: #1a1a24; border: 1px solid #2a2a3c; color: #cdd6f4; min-width: 200px;"
+         oninput="renderDownloads(activeFilter)" />
+</div>
+
+<!-- Error display -->
+<div id="errorBox" class="hidden mb-6 p-4 rounded-lg" style="background: rgba(211,134,155,0.1); border: 1px solid rgba(211,134,155,0.2);">
+  <p id="errorMsg" class="text-sm" style="color: #d3869b;"></p>
+</div>
+
+<!-- Loading — Spinning Vinyl -->
+<div id="loading" class="px-6 py-12 text-center">
+  <div class="inline-block mb-3">
+    <svg class="w-16 h-16 vinyl-spin" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="#1a1a24" stroke="#2a2a3c" stroke-width="1"/>
+      <circle cx="32" cy="32" r="24" fill="none" stroke="#2a2a3c" stroke-width="0.5"/>
+      <circle cx="32" cy="32" r="18" fill="none" stroke="#2a2a3c" stroke-width="0.5"/>
+      <circle cx="32" cy="32" r="12" fill="none" stroke="#2a2a3c" stroke-width="0.5"/>
+      <circle cx="32" cy="32" r="8" fill="#e78a4e"/>
+      <circle cx="32" cy="32" r="2" fill="#1a1a24"/>
+    </svg>
+  </div>
+  <p class="text-sm" style="color: #cdd6f4;">Loading transfers...</p>
+</div>
+
+<!-- Downloads table -->
+<div id="downloadsTable" class="hidden rounded-xl overflow-x-auto" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+  <table class="w-full" id="dlTable" style="border-collapse: separate; border-spacing: 0; table-layout: fixed;">
+    <thead>
+      <tr style="background: #151520;">
+        <th data-sort="file" data-col="0" class="dl-sort resizable px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">File</th>
+        <th data-sort="user" data-col="1" class="dl-sort resizable px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">User</th>
+        <th data-sort="status" data-col="2" class="dl-sort resizable px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+        <th data-sort="progress" data-col="3" class="dl-sort resizable px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Progress</th>
+        <th data-sort="size" data-col="4" class="dl-sort resizable px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Size</th>
+        <th data-sort="speed" data-col="5" class="dl-sort resizable px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Speed</th>
+        <th data-sort="date" data-col="6" class="dl-sort resizable px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Date</th>
+        <th data-sort="source" data-col="7" class="dl-sort resizable px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Source</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="downloadsBody">
+    </tbody>
+  </table>
+</div>
+
+<!-- Needs Attention — DB-backed stuck songs (collapsed by default) -->
+<div id="stuckSection" class="hidden mb-6">
+  <details class="rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid rgba(211,134,155,0.3);">
+    <summary class="px-4 py-3 cursor-pointer select-none flex items-center gap-2 text-sm font-semibold" style="color: #d3869b;">
+      <svg class="w-4 h-4 transition-transform stuck-chevron" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      Needs Attention
+      <span id="stuckCount" class="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-bold rounded-full" style="background: rgba(211,134,155,0.2); color: #d3869b; min-width: 20px;">0</span>
+    </summary>
+    <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+      <thead>
+        <tr style="background: #151520;">
+          <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Song</th>
+          <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+          <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Queued</th>
+          <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="stuckBody"></tbody>
+    </table>
+  </details>
+</div>
+
+<!-- Empty state -->
+<div id="emptyState" class="hidden px-6 py-16 text-center rounded-xl" style="background: #1a1a24; border: 1px dashed #2a2a3c;">
+  <div class="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3" style="background: #2a2a3c;">
+    <svg class="w-6 h-6" style="color: #585b70;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+  </div>
+  <p class="text-sm font-medium" style="color: #cdd6f4;">The queue's empty</p>
+  <p class="text-xs mt-1" style="color: #585b70;">Go find something good.</p>
+</div>
+
+<style>
+  details[open] .stuck-chevron { transform: rotate(90deg); }
+  details summary::-webkit-details-marker { display: none; }
+  details summary { list-style: none; }
+</style>
+
+<script>
+let allDownloads = [];
+let activeFilter = 'all';
+let isFirstLoad = true;
+let sortKey = null;
+let sortDir = 'asc';
+
+// Badge config for dark theme: [bg, text, ring-color, dot-color, label]
+const CATEGORY_BADGE = {
+  downloading: ['rgba(137,180,250,0.15)', '#89b4fa', '#89b4fa22', '#89b4fa', 'Downloading', true],
+  queued:      ['rgba(231,138,78,0.15)',  '#e78a4e', '#e78a4e22', '#e78a4e', 'Queued', false],
+  completed:   ['rgba(125,174,163,0.15)', '#7daea3', '#7daea322', '#7daea3', 'Completed', false],
+  failed:      ['rgba(211,134,155,0.15)', '#d3869b', '#d3869b22', '#d3869b', 'Failed', false],
+  unknown:     ['rgba(108,112,134,0.15)', '#6c7086', '#6c708622', '#6c7086', 'Unknown', false],
+};
+
+const CATEGORY_ORDER = { downloading: 0, queued: 1, completed: 2, failed: 3, unknown: 4 };
+
+const STUCK_STATUS_BADGE = {
+  queued:          ['rgba(231,138,78,0.15)', '#e78a4e', 'Queued'],
+  stalled:         ['rgba(211,134,155,0.15)', '#d3869b', 'Stalled'],
+  stalled_waiting: ['rgba(211,134,155,0.15)', '#d3869b', 'Stalled'],
+  downloaded:      ['rgba(137,180,250,0.15)', '#89b4fa', 'Missing file'],
+};
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function escapeAttr(text) {
+  return String(text).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function sortDownloads(list) {
+  if (!sortKey) return list;
+  const sorted = [...list];
+  sorted.sort((a, b) => {
+    let va, vb;
+    switch (sortKey) {
+      case 'file': va = a.basename.toLowerCase(); vb = b.basename.toLowerCase(); break;
+      case 'user': va = a.username.toLowerCase(); vb = b.username.toLowerCase(); break;
+      case 'status': va = CATEGORY_ORDER[a.category] ?? 9; vb = CATEGORY_ORDER[b.category] ?? 9; break;
+      case 'progress': va = a.percent; vb = b.percent; break;
+      case 'size': va = a.size; vb = b.size; break;
+      case 'speed': va = a.upload_speed || 0; vb = b.upload_speed || 0; break;
+      case 'date': va = a.requested_at || a.date_queued || ''; vb = b.requested_at || b.date_queued || ''; break;
+      case 'source': va = (a.source_name || a.source_type || '').toLowerCase(); vb = (b.source_name || b.source_type || '').toLowerCase(); break;
+      default: return 0;
+    }
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function renderDownloads(filter) {
+  let filtered = filter === 'all' ? allDownloads : allDownloads.filter(d => d.category === filter);
+
+  // Client-side text search
+  const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  if (searchTerm) {
+    filtered = filtered.filter(d =>
+      d.basename.toLowerCase().includes(searchTerm) ||
+      d.username.toLowerCase().includes(searchTerm) ||
+      (d.source_name || '').toLowerCase().includes(searchTerm) ||
+      (d.source_type || '').toLowerCase().includes(searchTerm)
+    );
+  }
+
+  filtered = sortDownloads(filtered);
+
+  const tbody = document.getElementById('downloadsBody');
+  tbody.innerHTML = '';
+
+  if (filtered.length === 0) {
+    document.getElementById('downloadsTable').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('downloadsTable').classList.remove('hidden');
+
+  for (const d of filtered) {
+    const badge = CATEGORY_BADGE[d.category] || CATEGORY_BADGE.unknown;
+    const row = document.createElement('tr');
+    row.className = 'transition-colors';
+    row.style.borderBottom = '1px solid #2a2a3c';
+    row.onmouseover = function() { this.style.background = 'rgba(231,138,78,0.04)'; };
+    row.onmouseout = function() { this.style.background = 'transparent'; };
+
+    let progressCell;
+    if (d.category === 'downloading') {
+      progressCell = `
+        <div class="w-24">
+          <div class="flex items-center gap-2">
+            <div class="flex-1 rounded-full h-2" style="background: #2a2a3c;">
+              <div class="h-2 rounded-full" style="width: ${d.percent}%; background: linear-gradient(90deg, #89b4fa, #a78bfa);"></div>
+            </div>
+            <span class="text-xs" style="color: #6c7086;">${d.percent}%</span>
+          </div>
+        </div>`;
+    } else if (d.category === 'completed') {
+      progressCell = '<svg class="w-4 h-4" style="color: #7daea3;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+    } else if (d.category === 'failed' && d.error) {
+      progressCell = `<span class="text-xs expandable truncate max-w-[120px] inline-block" style="color: #d3869b;" title="${escapeAttr(d.error)}">${escapeHtml(d.error)}</span>`;
+    } else {
+      progressCell = '<span class="text-xs" style="color: #585b70;">—</span>';
+    }
+
+    let actionCell = '';
+    if (d.category === 'failed' || d.category === 'completed') {
+      if (d.song_rowid) {
+        actionCell = `
+          <div class="flex items-center gap-2">
+            <a href="/search/${d.song_rowid}" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors" style="color: #89b4fa; background: rgba(137,180,250,0.1); border: 1px solid rgba(137,180,250,0.2);">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Search
+            </a>
+            <button onclick="retryDownload(${d.song_rowid}, this)" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors" style="color: #e78a4e; background: rgba(231,138,78,0.1); border: 1px solid rgba(231,138,78,0.2);">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Retry
+            </button>
+            <button onclick="deleteDownload(${d.song_rowid}, this)" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors" style="color: #585b70; background: rgba(211,134,155,0.08); border: 1px solid rgba(211,134,155,0.2);">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>Delete
+            </button>
+          </div>`;
+      } else {
+        // No song_rowid — offer a generic slskd search link using the filename
+        const searchQuery = encodeURIComponent(d.basename.replace(/\.[^.]+$/, ''));
+        actionCell = `
+          <a href="https://www.google.com/search?q=${searchQuery}+site:soulseek" target="_blank" class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors" style="color: #6c7086; background: rgba(108,112,134,0.1); border: 1px solid rgba(108,112,134,0.2);" title="Not linked to a tracked song">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Untracked
+          </a>`;
+      }
+    }
+
+    row.innerHTML = `
+      <td class="px-4 py-3.5 text-sm font-medium expandable truncate max-w-sm" style="color: #cdd6f4;" title="${escapeAttr(d.filename)}">${escapeHtml(d.basename)}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${escapeHtml(d.username)}</td>
+      <td class="px-4 py-3.5"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md" style="background: ${badge[0]}; color: ${badge[1]}; box-shadow: inset 0 0 0 1px ${badge[2]};"><span class="w-1.5 h-1.5 rounded-full${badge[5] ? ' animate-pulse' : ''}" style="background: ${badge[3]};"></span>${badge[4]}</span></td>
+      <td class="px-4 py-3.5">${progressCell}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${escapeHtml(d.size_display)}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${d.speed_display || '—'}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #585b70;">${escapeHtml(d.requested_at || d.date_queued || '—')}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${escapeHtml(d.source_name || d.source_type || '—')}</td>
+      <td class="px-4 py-3.5 whitespace-nowrap">${actionCell}</td>
+    `;
+    tbody.appendChild(row);
+  }
+}
+
+function renderStuck(stuckList) {
+  const section = document.getElementById('stuckSection');
+  const tbody = document.getElementById('stuckBody');
+
+  if (!stuckList || stuckList.length === 0) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  section.classList.remove('hidden');
+  document.getElementById('stuckCount').textContent = stuckList.length;
+  tbody.innerHTML = '';
+
+  for (const s of stuckList) {
+    const badge = STUCK_STATUS_BADGE[s.status] || ['rgba(108,112,134,0.15)', '#6c7086', s.status];
+    const row = document.createElement('tr');
+    row.style.borderBottom = '1px solid #2a2a3c';
+    row.onmouseover = function() { this.style.background = 'rgba(211,134,155,0.04)'; };
+    row.onmouseout = function() { this.style.background = 'transparent'; };
+
+    row.innerHTML = `
+      <td class="px-4 py-3 text-sm" style="color: #cdd6f4;">
+        <span class="font-medium">${escapeHtml(s.artist || '')}</span>
+        ${s.artist && s.title ? ' — ' : ''}
+        <span>${escapeHtml(s.title || '')}</span>
+      </td>
+      <td class="px-4 py-3">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md"
+              style="background: ${badge[0]}; color: ${badge[1]};">
+          ${badge[2]}
+        </span>
+      </td>
+      <td class="px-4 py-3 text-sm" style="color: #a6adc8;">${escapeHtml(s.date_queued || '—')}</td>
+      <td class="px-4 py-3">
+        <div class="flex items-center gap-2">
+          <a href="/search/${s.rowid}"
+             class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+             style="color: #89b4fa; background: rgba(137,180,250,0.1); border: 1px solid rgba(137,180,250,0.2);">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Search
+          </a>
+          <button onclick="retryDownload(${s.rowid}, this)"
+                  class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                  style="color: #e78a4e; background: rgba(231,138,78,0.1); border: 1px solid rgba(231,138,78,0.2);">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>Retry
+          </button>
+          <button onclick="deleteDownload(${s.rowid}, this)"
+                  class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                  style="color: #585b70; background: rgba(211,134,155,0.08); border: 1px solid rgba(211,134,155,0.2);">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>Delete
+          </button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(row);
+  }
+}
+
+async function retryDownload(rowid, btn) {
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  try {
+    const resp = await fetch(`/downloads/${rowid}/retry`, { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast('Song queued for retry — will be re-searched next run', 'success');
+      loadDownloads();
+    } else {
+      showToast(data.error || 'Retry failed', 'error');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  } catch (err) {
+    showToast('Retry failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+}
+
+async function deleteDownload(rowid, btn) {
+  if (!confirm('Remove this song? It will show as "Removed" in the source tab.')) return;
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  try {
+    const resp = await fetch(`/downloads/${rowid}/delete`, { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast('Song removed', 'success');
+      loadDownloads();
+    } else {
+      showToast(data.error || 'Delete failed', 'error');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  } catch (err) {
+    showToast('Delete failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+}
+
+async function loadDownloads() {
+  if (isFirstLoad) {
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('downloadsTable').classList.add('hidden');
+    document.getElementById('emptyState').classList.add('hidden');
+  }
+  document.getElementById('errorBox').classList.add('hidden');
+
+  try {
+    const resp = await fetch('/downloads/api');
+    const data = await resp.json();
+
+    if (isFirstLoad) {
+      document.getElementById('loading').classList.add('hidden');
+      isFirstLoad = false;
+    }
+
+    if (data.error) {
+      document.getElementById('errorMsg').textContent = data.error;
+      document.getElementById('errorBox').classList.remove('hidden');
+      return;
+    }
+
+    allDownloads = data.downloads || [];
+    const c = data.counts || {};
+
+    document.getElementById('countDownloading').textContent = c.downloading || 0;
+    document.getElementById('countQueued').textContent = c.queued || 0;
+    document.getElementById('countCompleted').textContent = c.completed || 0;
+    document.getElementById('countFailed').textContent = c.failed || 0;
+    document.getElementById('countStuck').textContent = c.stuck || 0;
+
+    renderDownloads(activeFilter);
+    renderStuck(data.db_stuck || []);
+
+  } catch (err) {
+    if (isFirstLoad) {
+      document.getElementById('loading').classList.add('hidden');
+      isFirstLoad = false;
+    }
+    document.getElementById('errorMsg').textContent = `Failed to load: ${err.message}`;
+    document.getElementById('errorBox').classList.remove('hidden');
+  }
+}
+
+// Filter tabs (dark pill-style)
+document.querySelectorAll('.filter-tab').forEach(tab => {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.filter-tab').forEach(t => {
+      t.style.background = 'transparent';
+      t.style.color = '#6c7086';
+    });
+    this.style.background = '#2a2a3c';
+    this.style.color = '#e78a4e';
+
+    activeFilter = this.dataset.filter;
+    renderDownloads(activeFilter);
+  });
+});
+
+// Column sort headers
+document.querySelectorAll('.dl-sort').forEach(th => {
+  th.addEventListener('click', function() {
+    const key = this.dataset.sort;
+    if (sortKey === key) {
+      sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortKey = key;
+      sortDir = 'asc';
+    }
+    document.querySelectorAll('.dl-sort').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+    this.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+    renderDownloads(activeFilter);
+  });
+});
+
+// Column resize handles — attaches drag handles to each resizable <th>.
+// With table-layout:fixed, setting width on a <th> controls the column width.
+(function() {
+  const table = document.getElementById('dlTable');
+  if (!table) return;
+  const ths = table.querySelectorAll('thead th.resizable');
+
+  // Snapshot initial widths from rendered layout so drag starts from real px values
+  function initWidths() {
+    ths.forEach(th => {
+      if (!th.style.width) th.style.width = th.offsetWidth + 'px';
+    });
+  }
+
+  ths.forEach((th) => {
+    const handle = document.createElement('div');
+    handle.style.cssText = 'position:absolute;right:-2px;top:0;bottom:0;width:5px;cursor:col-resize;z-index:10;';
+    handle.addEventListener('mouseenter', () => handle.style.background = '#e78a4e');
+    handle.addEventListener('mouseleave', () => { if (!handle._dragging) handle.style.background = ''; });
+    th.style.position = 'relative';
+    th.style.overflow = 'visible';
+    th.appendChild(handle);
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // Don't trigger sort
+      initWidths();
+      handle._dragging = true;
+      const startX = e.pageX;
+      const startW = th.offsetWidth;
+
+      const onMove = (e2) => {
+        const newW = Math.max(50, startW + (e2.pageX - startX));
+        th.style.width = newW + 'px';
+      };
+      const onUp = () => {
+        handle._dragging = false;
+        handle.style.background = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
+})();
+
+// Auto-refresh every 10 seconds
+{% if configured %}
+loadDownloads();
+setInterval(loadDownloads, 10000);
+{% endif %}
+</script>
+
+{% endblock %}

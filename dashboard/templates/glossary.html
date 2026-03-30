@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% from "macros.html" import status_badge, album_file_badge %}
+
+{% block title %}Status Glossary — SoulSync{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl">
+  <h1 class="text-xl font-semibold mb-2" style="color: #cdd6f4;">Status Glossary</h1>
+  <p class="text-sm mb-8" style="color: #585b70;">Every status a song or album file can have — what it means and where it sits in the pipeline.</p>
+
+  <!-- Song statuses -->
+  <h2 class="text-base font-semibold mb-3" style="color: #a6adc8;">Song Statuses</h2>
+
+  <!-- Normal Flow -->
+  <div class="mb-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: #585b70;">Normal Flow</h3>
+    <div class="rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+      <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+        <thead>
+          <tr style="background: #151520;">
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-44" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('new') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Song added to the database, not yet searched on Soulseek.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('searching') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Currently searching for this song on Soulseek.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('queued') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Download enqueued with a Soulseek peer, waiting for transfer.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('downloaded') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">File successfully downloaded to staging area.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3">{{ status_badge('delivered') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">File moved to destination folder — fully delivered.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Quality Upgrades -->
+  <div class="mb-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: #585b70;">Quality Upgrades</h3>
+    <div class="rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+      <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+        <thead>
+          <tr style="background: #151520;">
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-44" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('upgrade_queued') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">FLAC download enqueued, replacing an existing MP3.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3">{{ status_badge('upgraded') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">FLAC replacement found and delivered for a previously MP3-downloaded song.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Issues -->
+  <div class="mb-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: #585b70;">Issues</h3>
+    <div class="rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+      <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+        <thead>
+          <tr style="background: #151520;">
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-44" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('not_found') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">No results found on Soulseek after searching all query variants.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('no_match') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Results found but none passed quality or filename filters.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('stalled') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Download stalled (no progress for 24 hours), alternative source queued.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ status_badge('stalled_waiting') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Download stalled and maximum alternative sources (3) exhausted.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md" style="background: rgba(137,180,250,0.15); color: #89b4fa;">Missing file</span></td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Song marked as downloaded in the database but the file is missing from disk. Shown on the Downloads page under "Needs Attention".</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Albums -->
+  <div class="mb-6">
+    <h3 class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: #585b70;">Albums</h3>
+    <div class="rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+      <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+        <thead>
+          <tr style="background: #151520;">
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-44" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="px-4 py-3">{{ status_badge('downloading') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Album folder download in progress — individual files have been enqueued, waiting for all to complete before marking as downloaded.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Other -->
+  <div class="mb-10">
+    <h3 class="text-xs font-semibold uppercase tracking-wide mb-2" style="color: #585b70;">Other</h3>
+    <div class="rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+      <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+        <thead>
+          <tr style="background: #151520;">
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-44" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="px-4 py-3">{{ status_badge('removed') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Song removed from the source playlist or file — kept in the database for history.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Album file statuses -->
+  <h2 class="text-base font-semibold mb-3" style="color: #a6adc8;">Album File Statuses</h2>
+  <p class="text-sm mb-3" style="color: #585b70;">Albums are downloaded as a folder of individual files. Each file has its own status tracked separately.</p>
+  <div class="mb-6">
+    <div class="rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+      <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+        <thead>
+          <tr style="background: #151520;">
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider w-44" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Meaning</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ album_file_badge('queued') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Individual album file enqueued for download.</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #2a2a3c;">
+            <td class="px-4 py-3">{{ album_file_badge('downloaded') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Individual album file successfully downloaded.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3">{{ album_file_badge('failed') }}</td>
+            <td class="px-4 py-3 text-sm" style="color: #a6adc8;">Individual album file download failed.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

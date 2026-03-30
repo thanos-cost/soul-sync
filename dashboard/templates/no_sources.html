@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}No Sources — SoulSync{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-center h-64">
+  <div class="text-center">
+    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: #2a2a3c;">
+      <svg class="w-8 h-8" style="color: #585b70;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>
+    </div>
+    <h2 class="text-lg font-semibold mb-2" style="color: #cdd6f4;">No sources configured</h2>
+    <p class="text-sm mb-4" style="color: #585b70;">Add a playlist to start syncing.</p>
+    <a href="{{ url_for('sources.source_add') }}"
+       class="btn-press inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg shadow-sm transition-colors"
+       style="background: #e78a4e; color: #0f0f14;">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+      Add Source
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}SoulSync{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Space Grotesk', system-ui, sans-serif; }
+
+    /* Sortable column headers */
+    th[data-sort] { cursor: pointer; user-select: none; }
+    th[data-sort]:hover { color: #e78a4e; }
+    th[data-sort]::after { content: ' \2195'; opacity: 0.3; font-size: 0.7em; }
+    th[data-sort].sort-asc::after { content: ' \2191'; opacity: 1; }
+    th[data-sort].sort-desc::after { content: ' \2193'; opacity: 1; }
+
+    /* Expandable truncated cells */
+    td.expandable { cursor: pointer; }
+    td.expandable.expanded { white-space: normal; word-break: break-all; max-width: none !important; }
+
+    /* Page transition */
+    main { animation: fadeIn 0.2s ease; scroll-behavior: smooth; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Noise grain overlay for sidebar */
+    .noise-grain::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0.03;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    /* Gradient mesh background for main area */
+    .mesh-bg {
+      background:
+        radial-gradient(ellipse at 20% 50%, rgba(231, 138, 78, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(125, 174, 163, 0.03) 0%, transparent 50%),
+        radial-gradient(ellipse at 60% 80%, rgba(211, 134, 155, 0.025) 0%, transparent 50%),
+        #0f0f14;
+    }
+
+    /* Spinning vinyl animation */
+    .vinyl-spin { animation: spin 3s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* Waveform bar animation */
+    @keyframes waveform {
+      0%, 100% { height: 30%; }
+      50% { height: 100%; }
+    }
+    .waveform-bar { animation: waveform 1.2s ease-in-out infinite; }
+
+    /* Button press depth */
+    button, a.btn-press { transition: transform 0.1s ease, background-color 0.15s ease; }
+    button:active, a.btn-press:active { transform: translateY(1px); }
+
+    /* Sidebar hover glow */
+    .sidebar-link:hover { box-shadow: 0 0 12px rgba(231, 138, 78, 0.08); }
+
+    /* Active sidebar indicator */
+    .sidebar-active { border-left: 2px solid #e78a4e; }
+
+    /* Toast notification */
+    .toast {
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 50;
+    }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+
+    /* Scrollbar styling for dark theme */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0f0f14; }
+    ::-webkit-scrollbar-thumb { background: #2a2a3c; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3a4c; }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden" style="background: #0f0f14; color: #cdd6f4;">
+
+  <!-- Left sidebar — dark theme with noise grain -->
+  <aside class="w-56 flex flex-col flex-shrink-0 h-full overflow-y-auto relative noise-grain" style="background: #1e1e2e;">
+
+    <!-- Branding — Vinyl + Sync logo -->
+    <div class="px-4 py-5 relative z-10" style="border-bottom: 1px solid #313244;">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #e78a4e, #d3869b);">
+          <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="white" stroke-width="1.5"/>
+            <circle cx="12" cy="12" r="3" fill="white" opacity="0.3"/>
+            <circle cx="12" cy="12" r="1" fill="white"/>
+            <path d="M19 8l2-2-2-2" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M21 6h-4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M5 16l-2 2 2 2" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M3 18h4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="text-sm font-semibold" style="color: #cdd6f4;">SoulSync</span>
+      </div>
+    </div>
+
+    <!-- Source type navigation -->
+    <nav class="flex-1 px-2 py-4 relative z-10">
+      <p class="px-3 mb-2 text-[10px] font-medium uppercase tracking-widest" style="color: #585b70;">Sources</p>
+      <div class="space-y-0.5">
+        {# Icon map for source types #}
+        {% set icon_map = {
+          'youtube': '<svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a2.994 2.994 0 00-2.112-2.12C19.505 3.546 12 3.546 12 3.546s-7.505 0-9.386.52A2.994 2.994 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a2.994 2.994 0 002.112 2.12c1.881.52 9.386.52 9.386.52s7.505 0 9.386-.52a2.994 2.994 0 002.112-2.12C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/><polygon fill="#1e1e2e" points="9.75,15.02 15.5,12 9.75,8.98"/></svg>',
+          'spotify': '<svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>',
+          'discogs': '<svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm0 21.6c-5.292 0-9.6-4.308-9.6-9.6S6.708 2.4 12 2.4s9.6 4.308 9.6 9.6-4.308 9.6-9.6 9.6zm0-16.8c-3.972 0-7.2 3.228-7.2 7.2s3.228 7.2 7.2 7.2 7.2-3.228 7.2-7.2-3.228-7.2-7.2-7.2zm0 12c-2.652 0-4.8-2.148-4.8-4.8s2.148-4.8 4.8-4.8 4.8 2.148 4.8 4.8-2.148 4.8-4.8 4.8zm0-7.2c-1.32 0-2.4 1.08-2.4 2.4s1.08 2.4 2.4 2.4 2.4-1.08 2.4-2.4-1.08-2.4-2.4-2.4z"/></svg>',
+          'textfile': '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>'
+        } %}
+        {% set label_map = {'youtube': 'YouTube', 'spotify': 'Spotify', 'discogs': 'Discogs', 'textfile': 'Text File'} %}
+
+        {% for st in source_types %}
+        {% set label = label_map.get(st.type, st.type | title) %}
+        {% set is_active = (request.view_args.get('source_type') == st.type) %}
+        <a href="{{ url_for('songs.source_view', source_type=st.type) }}"
+           class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all
+                  {% if is_active %}sidebar-active font-medium{% endif %}"
+           style="{% if is_active %}background: rgba(231, 138, 78, 0.1); color: #e78a4e; border-left: 2px solid #e78a4e; padding-left: 10px;{% else %}color: #a6adc8;{% endif %}">
+          {{ icon_map.get(st.type, '') | safe }}
+          {{ label }}
+        </a>
+        {% else %}
+        <p class="px-3 py-2 text-xs" style="color: #585b70;">No sources yet</p>
+        {% endfor %}
+        <a href="{{ url_for('sources.source_add') }}"
+           class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all"
+           style="color: #a6adc8;">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+          Add Source
+        </a>
+      </div>
+    </nav>
+
+    <!-- Downloads + Footer links -->
+    <div class="px-2 py-3 space-y-0.5 relative z-10" style="border-top: 1px solid #313244;">
+      {% set dl_active = request.path == '/downloads' %}
+      <a href="{{ url_for('downloads.downloads_page') }}"
+         class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all
+                {% if dl_active %}sidebar-active font-medium{% endif %}"
+         style="{% if dl_active %}background: rgba(231, 138, 78, 0.1); color: #e78a4e; border-left: 2px solid #e78a4e; padding-left: 10px;{% else %}color: #a6adc8;{% endif %}">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Downloads
+      </a>
+      {% set act_active = request.path.startswith('/activity') %}
+      <a href="{{ url_for('activity.activity_page') }}"
+         class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all
+                {% if act_active %}sidebar-active font-medium{% endif %}"
+         style="{% if act_active %}background: rgba(231, 138, 78, 0.1); color: #e78a4e; border-left: 2px solid #e78a4e; padding-left: 10px;{% else %}color: #a6adc8;{% endif %}">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Activity
+      </a>
+      {% set set_active = request.path.startswith('/settings') %}
+      <a href="{{ url_for('settings.settings_page') }}"
+         class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all
+                {% if set_active %}sidebar-active font-medium{% endif %}"
+         style="{% if set_active %}background: rgba(231, 138, 78, 0.1); color: #e78a4e; border-left: 2px solid #e78a4e; padding-left: 10px;{% else %}color: #a6adc8;{% endif %}">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+        Settings
+      </a>
+      {% set gl_active = request.path == '/glossary' %}
+      <a href="{{ url_for('songs.glossary') }}"
+         class="sidebar-link flex items-center gap-2 px-3 py-2 text-xs rounded-lg transition-all"
+         style="{% if gl_active %}background: rgba(231, 138, 78, 0.1); color: #e78a4e;{% else %}color: #585b70;{% endif %}">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4m0-4h.01"/></svg>
+        Status Glossary
+      </a>
+    </div>
+
+  </aside>
+
+  <!-- Main content — gradient mesh background -->
+  <main class="flex-1 overflow-auto p-6 mesh-bg">
+    <div class="max-w-6xl">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <!-- Toast container -->
+  <div id="toastContainer" class="fixed bottom-6 right-6 z-50 space-y-2"></div>
+
+  <script>
+  /* -- Shared table utilities -- */
+
+  /* Expandable truncated cells: click to toggle */
+  document.addEventListener('click', function(e) {
+    const td = e.target.closest('td.expandable');
+    if (td) td.classList.toggle('expanded');
+  });
+
+  /* Sortable table columns: click header to sort */
+  function initSortableTable(tableEl) {
+    if (!tableEl) return;
+    const headers = tableEl.querySelectorAll('th[data-sort]');
+    const tbody = tableEl.querySelector('tbody');
+    if (!headers.length || !tbody) return;
+
+    headers.forEach(th => {
+      th.addEventListener('click', function() {
+        const key = this.dataset.sort;
+        const type = this.dataset.sortType || 'string';
+        const wasAsc = this.classList.contains('sort-asc');
+        const dir = wasAsc ? 'desc' : 'asc';
+
+        headers.forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+        this.classList.add(dir === 'asc' ? 'sort-asc' : 'sort-desc');
+
+        const idx = Array.from(this.parentElement.children).indexOf(this);
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((a, b) => {
+          let va = a.children[idx]?.textContent.trim() || '';
+          let vb = b.children[idx]?.textContent.trim() || '';
+          if (type === 'number') {
+            va = parseFloat(va.replace(/[^0-9.\-]/g, '')) || 0;
+            vb = parseFloat(vb.replace(/[^0-9.\-]/g, '')) || 0;
+          } else { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+          if (va < vb) return dir === 'asc' ? -1 : 1;
+          if (va > vb) return dir === 'asc' ? 1 : -1;
+          return 0;
+        });
+        rows.forEach(row => tbody.appendChild(row));
+      });
+    });
+  }
+
+  document.querySelectorAll('table[data-sortable]').forEach(initSortableTable);
+
+  /* -- Toast notification system -- */
+  function showToast(message, type) {
+    type = type || 'info';
+    const colors = {
+      success: 'border-l-4 border-emerald-500',
+      error: 'border-l-4 border-rose-500',
+      info: 'border-l-4 border-blue-500',
+    };
+    const toast = document.createElement('div');
+    toast.className = 'toast px-4 py-3 rounded-lg shadow-lg text-sm font-medium ' + (colors[type] || colors.info);
+    toast.style.cssText = 'background: #1a1a24; color: #cdd6f4; border: 1px solid #2a2a3c; min-width: 250px;';
+    toast.textContent = message;
+    var container = document.getElementById('toastContainer');
+    container.appendChild(toast);
+    setTimeout(function() { toast.remove(); }, 3000);
+  }
+
+  /* Auto-show toast for flash messages from form submissions */
+  {% if get_flashed_messages is defined %}
+  {% for msg in get_flashed_messages() %}
+  showToast("{{ msg }}", "success");
+  {% endfor %}
+  {% endif %}
+  </script>
+
+</body>
+</html>

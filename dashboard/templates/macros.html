@@ -1,0 +1,38 @@
+{% macro status_badge(status) %}
+{%- set colors = {
+    'downloaded':     ['#7daea3', 'rgba(125,174,163,0.15)'],
+    'delivered':      ['#7daea3', 'rgba(125,174,163,0.15)'],
+    'upgraded':       ['#7daea3', 'rgba(125,174,163,0.15)'],
+    'not_found':      ['#d3869b', 'rgba(211,134,155,0.15)'],
+    'no_match':       ['#d3869b', 'rgba(211,134,155,0.15)'],
+    'stalled_waiting':['#d3869b', 'rgba(211,134,155,0.15)'],
+    'searching':      ['#e78a4e', 'rgba(231,138,78,0.15)'],
+    'queued':         ['#e78a4e', 'rgba(231,138,78,0.15)'],
+    'downloading':    ['#89b4fa', 'rgba(137,180,250,0.15)'],
+    'upgrade_queued': ['#e78a4e', 'rgba(231,138,78,0.15)'],
+    'stalled':        ['#e78a4e', 'rgba(231,138,78,0.15)'],
+    'new':            ['#6c7086', 'rgba(108,112,134,0.15)'],
+    'removed':        ['#585b70', 'rgba(88,91,112,0.15)'],
+} -%}
+{%- set c = colors.get(status, ['#6c7086', 'rgba(108,112,134,0.15)']) -%}
+{%- set is_active = status in ('downloading', 'searching') -%}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md"
+      style="background: {{ c[1] }}; color: {{ c[0] }}; box-shadow: inset 0 0 0 1px {{ c[0] }}22;">
+  <span class="w-1.5 h-1.5 rounded-full{% if is_active %} animate-pulse{% endif %}" style="background: {{ c[0] }};"></span>
+  {{ status | replace('_', ' ') | title }}
+</span>
+{% endmacro %}
+
+{% macro album_file_badge(status) %}
+{%- set colors = {
+    'queued':     ['#e78a4e', 'rgba(231,138,78,0.15)'],
+    'downloaded': ['#7daea3', 'rgba(125,174,163,0.15)'],
+    'failed':     ['#d3869b', 'rgba(211,134,155,0.15)'],
+} -%}
+{%- set c = colors.get(status, ['#6c7086', 'rgba(108,112,134,0.15)']) -%}
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md"
+      style="background: {{ c[1] }}; color: {{ c[0] }}; box-shadow: inset 0 0 0 1px {{ c[0] }}22;">
+  <span class="w-1.5 h-1.5 rounded-full" style="background: {{ c[0] }};"></span>
+  {{ status | replace('_', ' ') | title }}
+</span>
+{% endmacro %}

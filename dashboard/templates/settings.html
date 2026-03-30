@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — SoulSync{% endblock %}
+
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="text-xl font-semibold" style="color: #cdd6f4;">Settings</h1>
+  <p class="text-xs mt-1" style="color: #585b70;">Pipeline schedule and folder paths</p>
+</div>
+
+<!-- Settings form -->
+<div class="rounded-xl p-5 mb-6" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+  <form action="{{ url_for('settings.settings_save') }}" method="POST" class="space-y-5">
+
+    <!-- Scheduled time -->
+    <div class="max-w-xs">
+      <label for="scheduled_time" class="block text-xs font-medium mb-1.5" style="color: #a6adc8;">Daily run time</label>
+      <input type="time" name="scheduled_time" id="scheduled_time"
+             value="{{ scheduled_time }}"
+             class="w-full px-3 py-2 text-sm rounded-lg"
+             style="background: #0f0f14; color: #cdd6f4; border: 1px solid #2a2a3c;">
+      <p class="text-[10px] mt-1" style="color: #585b70;">Pipeline runs once daily at this time (24h format, local timezone)</p>
+    </div>
+
+    <!-- File organisation info -->
+    <div class="max-w-lg rounded-lg p-3" style="background: #0f0f14; border: 1px dashed #2a2a3c;">
+      <p class="text-[10px] font-medium uppercase tracking-wider mb-1.5" style="color: #6c7086;">File organisation</p>
+      <p class="text-xs" style="color: #a6adc8;">Delivered files are organised by source name:</p>
+      <p class="text-xs font-mono mt-1" style="color: #585b70;">My Jazz Playlist/Artist - track.flac</p>
+    </div>
+
+    <!-- Directory paths -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+      <div>
+        <label for="staging_dir" class="block text-xs font-medium mb-1.5" style="color: #a6adc8;">Download staging folder</label>
+        <div class="flex gap-2">
+          <input type="text" name="staging_dir" id="staging_dir"
+                 value="{{ staging_dir }}"
+                 class="flex-1 px-3 py-2 text-sm rounded-lg font-mono"
+                 style="background: #0f0f14; color: #cdd6f4; border: 1px solid #2a2a3c;"
+                 placeholder="/downloads">
+          <button type="button" onclick="openBrowse('staging_dir')"
+                  class="btn-press px-3 py-2 text-sm rounded-lg whitespace-nowrap"
+                  style="color: #a6adc8; background: #0f0f14; border: 1px solid #2a2a3c;">
+            <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            Browse
+          </button>
+        </div>
+        <p class="text-[10px] mt-1" style="color: #585b70;">Where slskd saves downloaded files</p>
+      </div>
+      <div>
+        <label for="final_dir" class="block text-xs font-medium mb-1.5" style="color: #a6adc8;">Delivery destination folder</label>
+        <div class="flex gap-2">
+          <input type="text" name="final_dir" id="final_dir"
+                 value="{{ final_dir }}"
+                 class="flex-1 px-3 py-2 text-sm rounded-lg font-mono"
+                 style="background: #0f0f14; color: #cdd6f4; border: 1px solid #2a2a3c;"
+                 placeholder="/dest">
+          <button type="button" onclick="openBrowse('final_dir')"
+                  class="btn-press px-3 py-2 text-sm rounded-lg whitespace-nowrap"
+                  style="color: #a6adc8; background: #0f0f14; border: 1px solid #2a2a3c;">
+            <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            Browse
+          </button>
+        </div>
+        <p class="text-[10px] mt-1" style="color: #585b70;">Where delivered files are moved to</p>
+      </div>
+      <div>
+        <label for="share_dir" class="block text-xs font-medium mb-1.5" style="color: #a6adc8;">Soulseek shared folder</label>
+        <div class="flex gap-2">
+          <input type="text" name="share_dir" id="share_dir"
+                 value="{{ share_dir }}"
+                 class="flex-1 px-3 py-2 text-sm rounded-lg font-mono"
+                 style="background: #0f0f14; color: #cdd6f4; border: 1px solid #2a2a3c;"
+                 placeholder="/music">
+          <button type="button" onclick="openBrowse('share_dir')"
+                  class="btn-press px-3 py-2 text-sm rounded-lg whitespace-nowrap"
+                  style="color: #a6adc8; background: #0f0f14; border: 1px solid #2a2a3c;">
+            <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            Browse
+          </button>
+        </div>
+        <p class="text-[10px] mt-1" style="color: #585b70;">Music folder shared with the Soulseek network (read-only)</p>
+      </div>
+    </div>
+
+    <button type="submit"
+            class="btn-press inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+            style="color: #e78a4e; background: rgba(231,138,78,0.1); border: 1px solid rgba(231,138,78,0.2);">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+      Save Settings
+    </button>
+  </form>
+</div>
+
+<!-- Browse modal -->
+<div id="browseModal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
+  <div class="rounded-xl w-full max-w-md mx-4" style="background: #1a1a24; border: 1px solid #2a2a3c; max-height: 80vh; display: flex; flex-direction: column;">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-4 py-3" style="border-bottom: 1px solid #2a2a3c;">
+      <h3 class="text-sm font-semibold" style="color: #cdd6f4;">Choose folder</h3>
+      <button onclick="closeBrowse()" class="p-1 rounded" style="color: #585b70;">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <!-- Current path -->
+    <div class="flex items-center gap-2 px-4 py-2" style="border-bottom: 1px solid #2a2a3c;">
+      <button onclick="browseNavigate(null, true)" class="p-1 rounded" style="color: #a6adc8;" title="Go up">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <p id="browsePath" class="text-xs font-mono truncate" style="color: #a6adc8;">/</p>
+    </div>
+    <!-- Directory list -->
+    <div id="browseDirs" class="overflow-y-auto flex-1 p-2" style="max-height: 50vh;"></div>
+    <!-- Footer -->
+    <div class="flex justify-end gap-2 px-4 py-3" style="border-top: 1px solid #2a2a3c;">
+      <button onclick="closeBrowse()" class="px-3 py-1.5 text-sm rounded-lg" style="color: #585b70;">Cancel</button>
+      <button onclick="selectBrowseFolder()" class="btn-press px-3 py-1.5 text-sm font-medium rounded-lg"
+              style="color: #e78a4e; background: rgba(231,138,78,0.1); border: 1px solid rgba(231,138,78,0.2);">
+        Select This Folder
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Browse modal
+// ---------------------------------------------------------------------------
+let browseTargetInput = null;
+let browseCurrentPath = '/';
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function openBrowse(inputId) {
+  browseTargetInput = inputId;
+  const startPath = document.getElementById(inputId).value.trim() || '';
+  document.getElementById('browseModal').classList.remove('hidden');
+  browseNavigate(startPath);
+}
+
+function closeBrowse() {
+  document.getElementById('browseModal').classList.add('hidden');
+}
+
+function selectBrowseFolder() {
+  if (browseTargetInput) {
+    document.getElementById(browseTargetInput).value = browseCurrentPath;
+  }
+  closeBrowse();
+}
+
+async function browseNavigate(path, goUp) {
+  if (goUp) {
+    const parts = browseCurrentPath.split('/').filter(Boolean);
+    parts.pop();
+    path = '/' + parts.join('/');
+  }
+  if (!path) path = '/';
+
+  try {
+    const resp = await fetch('/settings/browse?path=' + encodeURIComponent(path));
+    const data = await resp.json();
+
+    browseCurrentPath = data.current || path;
+    document.getElementById('browsePath').textContent = browseCurrentPath;
+
+    const container = document.getElementById('browseDirs');
+    container.innerHTML = '';
+
+    if (!data.dirs || data.dirs.length === 0) {
+      container.innerHTML = '<p class="px-3 py-4 text-xs text-center" style="color: #585b70;">No subdirectories</p>';
+      return;
+    }
+
+    for (const dir of data.dirs) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors text-left';
+      btn.style.cssText = 'color: #cdd6f4; background: transparent;';
+      btn.onmouseover = function() { this.style.background = 'rgba(231,138,78,0.06)'; };
+      btn.onmouseout = function() { this.style.background = 'transparent'; };
+      btn.onclick = function() { browseNavigate(browseCurrentPath === '/' ? '/' + dir : browseCurrentPath + '/' + dir); };
+      btn.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" style="color: #e78a4e;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>'
+        + '<span class="truncate">' + escapeHtml(dir) + '</span>';
+      container.appendChild(btn);
+    }
+  } catch (err) {
+    document.getElementById('browseDirs').innerHTML = '<p class="px-3 py-4 text-xs text-center" style="color: #d3869b;">Failed to list directory</p>';
+  }
+}
+
+document.getElementById('browseModal').addEventListener('click', function(e) {
+  if (e.target === this) closeBrowse();
+});
+</script>
+
+{% endblock %}

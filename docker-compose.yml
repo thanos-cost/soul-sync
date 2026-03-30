@@ -1,0 +1,57 @@
+services:
+  slskd:
+    image: slskd/slskd:0.24.5
+    container_name: slskd
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SLSKD_PORT:-5030}:5030/tcp"  # Web UI — localhost only
+      - "50300:50300/tcp"                            # Soulseek peer port — internet-accessible
+    volumes:
+      - ./data/slskd:/app:rw                         # Config, database, logs
+      - "${DOWNLOAD_DIR}:/downloads:rw"              # Staging downloads (quoted for spaces)
+      - "${SHARE_DIR}:/share:ro"                     # Music folder shared with Soulseek (read-only)
+    environment:
+      - SLSKD_REMOTE_CONFIGURATION=false             # Prevent web UI from overwriting slskd.yml
+      - SLSKD_SLSK_USERNAME=${SLSK_USERNAME}         # Soulseek username (from .env)
+      - SLSKD_SLSK_PASSWORD=${SLSK_PASSWORD}         # Soulseek password (from .env)
+
+  automator:
+    build: ./automator
+    container_name: automator
+    restart: unless-stopped                          # Daemon mode — auto-restart on crash
+    volumes:
+      - "${DOWNLOAD_DIR}:/downloads:rw"              # Staging — slskd writes downloads here
+      - "./data:/data:rw"                            # SQLite state database (Phase 2+)
+      - "${DEST_DIR}:/dest:rw"                         # Destination folder for delivered files
+      - "./sources.yaml:/config/sources.yaml:ro"    # Source configuration (legacy fallback)
+      - "./data/textfiles:/data/textfiles:ro"              # Text file sources (managed via dashboard)
+    environment:
+      - SOURCES_CONFIG=/config/sources.yaml
+      - ANTHROPIC_API_KEY=${SOULSEEK_SYNC_ANTHROPIC_KEY}
+      - SLSKD_HOST=http://slskd:5030
+      - SLSKD_API_KEY=${SLSKD_API_KEY}
+      - DEST_DIR=/dest
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
+      - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
+    depends_on:
+      - slskd
+
+  dashboard:
+    build: ./dashboard
+    container_name: dashboard
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5001:5000"
+    volumes:
+      - "./data:/data:rw"
+      - "${HOME}:/host:ro"                             # Host home directory (read-only, for folder browsing)
+      - "./.env:/config/.env:rw"                       # Writable .env for folder path updates
+    environment:
+      - DB_PATH=/data/songs.db
+      - SLSKD_HOST=http://slskd:5030
+      - SLSKD_API_KEY=${SLSKD_API_KEY}
+      - HOST_HOME=${HOME}
+      - DISCOGS_TOKEN=${DISCOGS_TOKEN:-}
+    depends_on:
+      - automator

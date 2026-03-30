@@ -1,0 +1,38 @@
+# Secrets — never commit your credentials
+.env
+
+# Runtime data (SQLite database, logs, text files, Spotify token)
+data/*
+# Keep the slskd config template for new installs
+!data/slskd/
+data/slskd/*
+!data/slskd/slskd.yml.example
+
+# slskd config contains real API key after setup
+# (slskd.yml.example is the safe template to commit)
+
+# Python cache
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Node (Playwright test runner)
+node_modules/
+
+# Claude Code / AI planning artifacts
+.planning/
+.context/
+.claude/
+.claude.json
+
+# Playwright test runner
+package.json
+package-lock.json
+
+# Dashboard dev artifacts
+dashboard/UI_*.html
+
+# Internal test artifacts
+docs/autonomous-verify/

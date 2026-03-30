@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}Pipeline Activity — SoulSync{% endblock %}
+
+{% block content %}
+
+<div class="mb-6 flex items-center justify-between">
+  <h1 class="text-xl font-semibold" style="color: #cdd6f4;">Pipeline Activity</h1>
+  <button id="refreshBtn" onclick="loadActivity()"
+          class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors"
+          style="color: #a6adc8; background: #1a1a24; border: 1px solid #2a2a3c;">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    Refresh
+  </button>
+</div>
+
+<!-- Metric cards -->
+<div id="metricsRow" class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+  <!-- Next Run -->
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Next Run</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(137,180,250,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #89b4fa;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+    </div>
+    <p id="nextRunCountdown" class="text-2xl font-bold" style="color: #89b4fa;">—</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">until next pipeline run</p>
+  </div>
+  <!-- Run Interval -->
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Interval</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(231,138,78,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #e78a4e;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      </div>
+    </div>
+    <p id="intervalDisplay" class="text-2xl font-bold" style="color: #e78a4e;">—</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">between pipeline runs</p>
+  </div>
+  <!-- Last Run Duration -->
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Last Run</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(125,174,163,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #7daea3;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+      </div>
+    </div>
+    <p id="lastRunDuration" class="text-2xl font-bold" style="color: #7daea3;">—</p>
+    <p id="lastRunStatus" class="text-[10px] mt-0.5" style="color: #585b70;">no runs yet</p>
+  </div>
+</div>
+
+<!-- Trigger buttons -->
+<div class="flex flex-wrap gap-3 mb-6">
+  <button id="triggerPipelineBtn" onclick="triggerAction('pipeline')"
+          class="btn-press inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors"
+          style="color: #89b4fa; background: rgba(137,180,250,0.1); border: 1px solid rgba(137,180,250,0.2);">
+    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    Run Pipeline Now
+  </button>
+  <button id="triggerDeliveryBtn" onclick="triggerAction('delivery')"
+          class="btn-press inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors"
+          style="color: #7daea3; background: rgba(125,174,163,0.1); border: 1px solid rgba(125,174,163,0.2);">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+    Transfer Files Now
+  </button>
+</div>
+
+<!-- Live Pipeline Status -->
+<div id="liveStagePanel" class="rounded-xl p-4 mb-6" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+  <div class="flex items-center gap-3">
+    <!-- Idle indicator (shown when pipeline is not running) -->
+    <div id="stageIdle" class="flex items-center gap-3 w-full">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background: rgba(88,91,112,0.15);">
+        <svg class="w-4 h-4" style="color: #585b70;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 12H4"/></svg>
+      </div>
+      <div>
+        <p class="text-sm font-medium" style="color: #585b70;">Idle</p>
+        <p id="stageIdleDetail" class="text-[11px]" style="color: #45475a;">Waiting for next scheduled run</p>
+      </div>
+    </div>
+    <!-- Running indicator (shown when pipeline is active) -->
+    <div id="stageRunning" class="hidden flex items-center gap-3 w-full">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background: rgba(137,180,250,0.15);">
+        <svg class="w-4 h-4 animate-spin" style="color: #89b4fa;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-medium" style="color: #89b4fa;">Pipeline Running</p>
+        <p id="stageText" class="text-[11px]" style="color: #a6adc8;">Starting...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading — Spinning Vinyl -->
+<div id="loading" class="px-6 py-12 text-center">
+  <div class="inline-block mb-3">
+    <svg class="w-16 h-16 vinyl-spin" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="30" fill="#1a1a24" stroke="#2a2a3c" stroke-width="1"/>
+      <circle cx="32" cy="32" r="24" fill="none" stroke="#2a2a3c" stroke-width="0.5"/>
+      <circle cx="32" cy="32" r="18" fill="none" stroke="#2a2a3c" stroke-width="0.5"/>
+      <circle cx="32" cy="32" r="12" fill="none" stroke="#2a2a3c" stroke-width="0.5"/>
+      <circle cx="32" cy="32" r="8" fill="#e78a4e"/>
+      <circle cx="32" cy="32" r="2" fill="#1a1a24"/>
+    </svg>
+  </div>
+  <p class="text-sm" style="color: #cdd6f4;">Loading pipeline activity...</p>
+</div>
+
+<!-- Run history table -->
+<div id="runsTable" class="hidden rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+  <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+    <thead>
+      <tr style="background: #151520;">
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Run</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Summary</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Started</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Duration</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Added</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Delivered</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+      </tr>
+    </thead>
+    <tbody id="runsBody">
+    </tbody>
+  </table>
+</div>
+
+<!-- Empty state -->
+<div id="emptyState" class="hidden px-6 py-16 text-center rounded-xl" style="background: #1a1a24; border: 1px dashed #2a2a3c;">
+  <div class="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3" style="background: #2a2a3c;">
+    <svg class="w-6 h-6" style="color: #585b70;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+  </div>
+  <p class="text-sm font-medium" style="color: #cdd6f4;">No pipeline runs yet</p>
+  <p class="text-xs mt-1" style="color: #585b70;">The first run will appear here after the pipeline executes.</p>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Trigger buttons
+// ---------------------------------------------------------------------------
+async function triggerAction(type) {
+  const btn = document.getElementById(type === 'pipeline' ? 'triggerPipelineBtn' : 'triggerDeliveryBtn');
+  const origText = btn.innerHTML;
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+
+  try {
+    const resp = await fetch('/activity/trigger-' + type, { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      showToast(data.message, 'success');
+      // Switch to fast polling immediately after triggering
+      pollIntervalMs = 5000;
+      schedulePoll();
+    } else {
+      showToast(data.message || 'Trigger failed', 'error');
+    }
+  } catch (err) {
+    showToast('Request failed: ' + err.message, 'error');
+  } finally {
+    setTimeout(() => { btn.disabled = false; btn.style.opacity = '1'; }, 3000);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Countdown + run history + live stage
+// ---------------------------------------------------------------------------
+let nextRunAt = null;
+let countdownInterval = null;
+let pollIntervalMs = 30000;  // 30s when idle, 5s when running
+let pollTimer = null;
+
+const STATUS_BADGE = {
+  running:   ['rgba(137,180,250,0.15)', '#89b4fa', '#89b4fa22', '#89b4fa', 'Running', true],
+  completed: ['rgba(125,174,163,0.15)', '#7daea3', '#7daea322', '#7daea3', 'Completed', false],
+  failed:    ['rgba(211,134,155,0.15)', '#d3869b', '#d3869b22', '#d3869b', 'Failed', false],
+};
+
+const HEADLINE_COLORS = {
+  error:   '#d3869b',
+  warning: '#e78a4e',
+  success: '#7daea3',
+  info:    '#585b70',
+};
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function formatDuration(secs) {
+  if (secs == null) return '—';
+  if (secs < 60) return Math.round(secs) + 's';
+  const m = Math.floor(secs / 60);
+  const s = Math.round(secs % 60);
+  if (m < 60) return m + 'm ' + s + 's';
+  const h = Math.floor(m / 60);
+  return h + 'h ' + (m % 60) + 'm';
+}
+
+function formatTimestamp(ts) {
+  if (!ts) return '—';
+  return ts.substring(0, 19).replace('T', ' ');
+}
+
+function updateCountdown() {
+  const el = document.getElementById('nextRunCountdown');
+  if (!nextRunAt) { el.textContent = '—'; return; }
+
+  const now = new Date();
+  const target = new Date(nextRunAt);
+  const diff = Math.max(0, Math.floor((target - now) / 1000));
+
+  if (diff === 0) {
+    el.textContent = 'Now';
+    el.style.color = '#7daea3';
+    return;
+  }
+
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = diff % 60;
+
+  if (h > 0) {
+    el.textContent = h + 'h ' + m + 'm';
+  } else if (m > 0) {
+    el.textContent = m + 'm ' + s + 's';
+  } else {
+    el.textContent = s + 's';
+  }
+  el.style.color = '#89b4fa';
+}
+
+function updateLiveStage(status, stage) {
+  const idleEl = document.getElementById('stageIdle');
+  const runningEl = document.getElementById('stageRunning');
+
+  if (status === 'running') {
+    idleEl.classList.add('hidden');
+    runningEl.classList.remove('hidden');
+    runningEl.style.display = 'flex';
+    document.getElementById('stageText').textContent = stage || 'Processing...';
+  } else {
+    runningEl.classList.add('hidden');
+    runningEl.style.display = '';
+    idleEl.classList.remove('hidden');
+    idleEl.style.display = 'flex';
+    // Update idle detail with countdown info
+    const detail = document.getElementById('stageIdleDetail');
+    if (nextRunAt) {
+      const now = new Date();
+      const target = new Date(nextRunAt);
+      const diff = Math.max(0, Math.floor((target - now) / 1000));
+      const h = Math.floor(diff / 3600);
+      const m = Math.floor((diff % 3600) / 60);
+      if (diff === 0) {
+        detail.textContent = 'Starting momentarily...';
+      } else if (h > 0) {
+        detail.textContent = 'Next run in ' + h + 'h ' + m + 'm';
+      } else {
+        detail.textContent = 'Next run in ' + m + 'm';
+      }
+    } else {
+      detail.textContent = 'Waiting for next scheduled run';
+    }
+  }
+}
+
+function renderRuns(runs) {
+  const tbody = document.getElementById('runsBody');
+  tbody.innerHTML = '';
+
+  if (runs.length === 0) {
+    document.getElementById('runsTable').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('runsTable').classList.remove('hidden');
+
+  for (const r of runs) {
+    const badge = STATUS_BADGE[r.status] || STATUS_BADGE.completed;
+    const row = document.createElement('tr');
+    row.className = 'transition-colors';
+    row.style.borderBottom = '1px solid #2a2a3c';
+    row.onmouseover = function() { this.style.background = 'rgba(231,138,78,0.04)'; };
+    row.onmouseout = function() { this.style.background = 'transparent'; };
+
+    const headlineColor = HEADLINE_COLORS[r.headline_level] || HEADLINE_COLORS.info;
+    const headlineText = r.headline ? escapeHtml(r.headline) : '';
+
+    row.innerHTML = `
+      <td class="px-4 py-3.5 text-sm font-medium" style="color: #cdd6f4;">#${r.run_number}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: ${headlineColor};">${headlineText || '<span style="color: #585b70;">—</span>'}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${escapeHtml(formatTimestamp(r.started_at))}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${formatDuration(r.duration_secs)}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${r.new_songs ?? 0}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${r.delivered ?? 0}</td>
+      <td class="px-4 py-3.5">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md"
+              style="background: ${badge[0]}; color: ${badge[1]}; box-shadow: inset 0 0 0 1px ${badge[2]};">
+          <span class="w-1.5 h-1.5 rounded-full${badge[5] ? ' animate-pulse' : ''}" style="background: ${badge[3]};"></span>
+          ${badge[4]}
+        </span>
+      </td>
+    `;
+    tbody.appendChild(row);
+  }
+}
+
+function schedulePoll() {
+  if (pollTimer) clearTimeout(pollTimer);
+  pollTimer = setTimeout(loadActivity, pollIntervalMs);
+}
+
+async function loadActivity() {
+  try {
+    const resp = await fetch('/activity/api');
+    const data = await resp.json();
+
+    document.getElementById('loading').classList.add('hidden');
+
+    if (data.error) {
+      showToast(data.error, 'error');
+      schedulePoll();
+      return;
+    }
+
+    // Update metric cards
+    const scheduledTime = data.scheduled_time || '00:00';
+    document.getElementById('intervalDisplay').textContent = 'Daily at ' + scheduledTime;
+
+    // Next run countdown
+    nextRunAt = data.next_run_at;
+    updateCountdown();
+    if (!countdownInterval) {
+      countdownInterval = setInterval(updateCountdown, 1000);
+    }
+
+    // Last run
+    if (data.last_run) {
+      const lr = data.last_run;
+      document.getElementById('lastRunDuration').textContent = formatDuration(lr.duration_secs);
+      if (lr.status === 'running') {
+        document.getElementById('lastRunStatus').textContent = 'currently running';
+        document.getElementById('lastRunDuration').style.color = '#89b4fa';
+      } else if (lr.status === 'failed') {
+        document.getElementById('lastRunStatus').textContent = 'run #' + lr.run_number + ' failed';
+        document.getElementById('lastRunDuration').style.color = '#d3869b';
+      } else {
+        document.getElementById('lastRunStatus').textContent = 'run #' + lr.run_number + ' completed';
+        document.getElementById('lastRunDuration').style.color = '#7daea3';
+      }
+    }
+
+    // Live stage panel
+    updateLiveStage(data.pipeline_status, data.pipeline_stage);
+
+    // Adaptive polling: 5s when running, 30s when idle
+    pollIntervalMs = data.pipeline_status === 'running' ? 5000 : 30000;
+
+    // Render run history
+    renderRuns(data.runs || []);
+
+  } catch (err) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+  }
+
+  schedulePoll();
+}
+
+loadActivity();
+</script>
+
+{% endblock %}

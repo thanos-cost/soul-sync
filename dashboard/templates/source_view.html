@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% from "macros.html" import status_badge %}
+
+{% block title %}
+  {% set label_map = {'youtube': 'YouTube', 'spotify': 'Spotify', 'discogs': 'Discogs', 'textfile': 'Text File'} %}
+  {{ label_map.get(source_type, source_type | title) }} — SoulSync
+{% endblock %}
+
+{% block content %}
+
+{% set label_map = {'youtube': 'YouTube', 'spotify': 'Spotify', 'discogs': 'Discogs', 'textfile': 'Text File'} %}
+{% set source_label = label_map.get(source_type, source_type | title) %}
+
+<!-- Page header -->
+<div class="mb-6">
+  <h1 class="text-xl font-semibold" style="color: #cdd6f4;">{{ source_label }}</h1>
+</div>
+
+<!-- Horizontal source tabs (pill-style) + Add button -->
+<div class="flex items-center gap-2 mb-6">
+  <div class="flex items-center gap-1.5 p-1 rounded-lg" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    {% for src in sources %}
+    <a href="{{ url_for('songs.source_view', source_type=source_type, tab=src.id) }}"
+       class="px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors"
+       style="{% if active_tab == src.id %}background: #2a2a3c; color: #e78a4e; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+              {% elif not src.enabled %}color: #585b70;
+              {% else %}color: #6c7086;{% endif %}">
+      {{ src.name }}
+      {% if not src.enabled %}
+      <span class="ml-1 text-[10px]" style="color: #585b70;">(off)</span>
+      {% endif %}
+    </a>
+    {% else %}
+    <span class="px-3.5 py-1.5 text-sm" style="color: #585b70;">No sources configured</span>
+    {% endfor %}
+  </div>
+
+  <!-- Add button -->
+  <a href="{{ url_for('sources.source_add', type=source_type) }}"
+     class="btn-press ml-auto inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg shadow-sm transition-colors"
+     style="background: #e78a4e; color: #0f0f14;">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+    Add
+  </a>
+</div>
+
+<!-- Source action buttons — shown for the active tab source -->
+{% for src in sources %}
+{% if active_tab == src.id %}
+<div class="flex items-center gap-2 mb-4">
+  <span class="text-sm" style="color: #6c7086;">{{ src.name }}</span>
+  <!-- Edit -->
+  <a href="{{ url_for('sources.source_edit', source_id=src.id) }}"
+     class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+     style="color: #a6adc8; background: #1a1a24; border: 1px solid #2a2a3c;">
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+    Edit
+  </a>
+  <!-- Toggle enable/disable -->
+  <form method="POST" action="{{ url_for('sources.source_toggle', source_id=src.id) }}" class="inline">
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+            style="{% if src.enabled %}color: #e78a4e; background: rgba(231,138,78,0.1); border: 1px solid rgba(231,138,78,0.2);{% else %}color: #7daea3; background: rgba(125,174,163,0.1); border: 1px solid rgba(125,174,163,0.2);{% endif %}">
+      {% if src.enabled %}Disable{% else %}Enable{% endif %}
+    </button>
+  </form>
+  <!-- Delete -->
+  <form method="POST" action="{{ url_for('sources.source_delete', source_id=src.id) }}" class="inline"
+        onsubmit="return confirm('Delete {{ src.name }}? This cannot be undone.\n\nNote: existing songs will remain in the database.');">
+    <button type="submit"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+            style="color: #d3869b; background: rgba(211,134,155,0.1); border: 1px solid rgba(211,134,155,0.2);">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+      Delete
+    </button>
+  </form>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Metric cards -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Total Songs</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(108,112,134,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #6c7086;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>
+      </div>
+    </div>
+    <p class="text-2xl font-bold" style="color: #cdd6f4;">{{ metrics.total or 0 }}</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">total tracked</p>
+  </div>
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Downloaded</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(125,174,163,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #7daea3;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+      </div>
+    </div>
+    <p class="text-2xl font-bold" style="color: #7daea3;">{{ metrics.downloaded or 0 }}</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">successfully fetched</p>
+  </div>
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Pending</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(231,138,78,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #e78a4e;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+    </div>
+    <p class="text-2xl font-bold" style="color: #e78a4e;">{{ metrics.pending or 0 }}</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">in progress</p>
+  </div>
+  <div class="rounded-xl p-4" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+    <div class="flex items-center justify-between mb-2">
+      <p class="text-[10px] font-medium uppercase tracking-wider" style="color: #6c7086;">Failed</p>
+      <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background: rgba(211,134,155,0.15);">
+        <svg class="w-3.5 h-3.5" style="color: #d3869b;" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+      </div>
+    </div>
+    <p class="text-2xl font-bold" style="color: #d3869b;">{{ metrics.failed or 0 }}</p>
+    <p class="text-[10px] mt-0.5" style="color: #585b70;">need attention</p>
+  </div>
+</div>
+
+<!-- Filter bar -->
+<form method="GET" action="{{ url_for('songs.source_view', source_type=source_type) }}"
+      class="flex items-center gap-3 mb-4">
+  {% if active_tab %}
+  <input type="hidden" name="tab" value="{{ active_tab }}" />
+  {% endif %}
+
+  <!-- Status dropdown -->
+  <select name="status"
+          class="text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
+          style="background: #1a1a24; border: 1px solid #2a2a3c; color: #a6adc8;">
+    <option value="">All Statuses</option>
+    {% for s in all_statuses %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s | replace('_', ' ') | title }}</option>
+    {% endfor %}
+  </select>
+
+  <!-- Text search -->
+  <input type="text" name="q" value="{{ search_query }}" placeholder="Search title or artist..."
+         class="flex-1 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
+         style="background: #1a1a24; border: 1px solid #2a2a3c; color: #cdd6f4;" />
+
+  <button type="submit"
+          class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-lg shadow-sm transition-colors"
+          style="background: #e78a4e; color: #0f0f14;">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    Filter
+  </button>
+  {% if status_filter or search_query %}
+  <a href="{{ url_for('songs.source_view', source_type=source_type, tab=active_tab) }}"
+     class="px-4 py-2.5 text-sm font-medium transition-colors" style="color: #6c7086;">
+    Clear
+  </a>
+  {% endif %}
+</form>
+
+<!-- Song table -->
+<div class="rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+  {% if songs %}
+  <table class="min-w-full" data-sortable style="border-collapse: separate; border-spacing: 0;">
+    <thead>
+      <tr style="background: #151520;">
+        <th data-sort="title" class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Title</th>
+        <th data-sort="artist" class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Artist</th>
+        <th data-sort="status" class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Status</th>
+        <th data-sort="date" class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Last Updated</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for song in songs %}
+      {% set last_updated = song.date_downloaded or song.date_queued or song.date_added %}
+      {% set last_updated_display = last_updated[:10] if last_updated else '—' %}
+      {% set is_discogs_album = (source_type == 'discogs') %}
+      <tr class="transition-colors{% if is_discogs_album %} album-row{% endif %}" style="border-bottom: 1px solid #2a2a3c;"
+          onmouseover="this.style.background='rgba(231,138,78,0.04)'" onmouseout="this.style.background='transparent'"
+          {% if is_discogs_album %}data-rowid="{{ song.rowid }}" onclick="toggleTracklist(this)" style="cursor: pointer; border-bottom: 1px solid #2a2a3c;"{% endif %}>
+        <td class="px-4 py-3.5 text-sm font-medium expandable truncate max-w-xs" style="color: #cdd6f4;" title="{{ song.title }}">
+          {% if is_discogs_album %}
+          <span class="chevron inline-block transition-transform mr-1.5" style="color: #585b70;">&#9654;</span>
+          {% endif %}
+          {{ song.title }}
+        </td>
+        <td class="px-4 py-3.5 text-sm expandable truncate max-w-[200px]" style="color: #a6adc8;" title="{{ song.artist or '' }}">{{ song.artist or '—' }}</td>
+        <td class="px-4 py-3.5">{{ status_badge(song.status) }}</td>
+        <td class="px-4 py-3.5 text-sm" style="color: #585b70;">{{ last_updated_display }}</td>
+        <td class="px-4 py-3.5">
+          {% if song.status in ('not_found', 'no_match', 'stalled', 'stalled_waiting', 'new') %}
+          <a href="{{ url_for('search.search_song', song_id=song.rowid) }}"
+             class="btn-press inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+             style="color: #89b4fa; background: rgba(137,180,250,0.1); border: 1px solid rgba(137,180,250,0.2);"
+             onclick="event.stopPropagation();">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            Search
+          </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% if is_discogs_album %}
+      <tr class="tracklist-row hidden" id="tracklist-{{ song.rowid }}" style="background: #151520;">
+        <td colspan="5" class="px-4 py-0">
+          <div class="tracklist-content py-3 pl-6" style="border-left: 2px solid #2a2a3c; margin-left: 8px;">
+            <p class="text-xs" style="color: #585b70;">Loading tracks...</p>
+          </div>
+        </td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="px-6 py-16 text-center">
+    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3" style="background: #2a2a3c;">
+      <svg class="w-6 h-6" style="color: #585b70;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>
+    </div>
+    <p class="text-sm font-medium" style="color: #cdd6f4;">No tracks yet</p>
+    <p class="text-xs mt-1" style="color: #585b70;">
+      {% if status_filter or search_query %}Try clearing the filters above.
+      {% else %}Add a source and we'll start digging.{% endif %}
+    </p>
+  </div>
+  {% endif %}
+</div>
+
+{% if source_type == 'discogs' %}
+<script>
+const tracklistCache = {};
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+async function toggleTracklist(albumRow) {
+  const rowid = albumRow.dataset.rowid;
+  const detailRow = document.getElementById('tracklist-' + rowid);
+  const chevron = albumRow.querySelector('.chevron');
+
+  if (!detailRow) return;
+
+  // Toggle visibility
+  if (!detailRow.classList.contains('hidden')) {
+    detailRow.classList.add('hidden');
+    chevron.style.transform = 'rotate(0deg)';
+    return;
+  }
+
+  detailRow.classList.remove('hidden');
+  chevron.style.transform = 'rotate(90deg)';
+
+  // Already loaded? Done.
+  if (tracklistCache[rowid]) return;
+
+  const content = detailRow.querySelector('.tracklist-content');
+
+  try {
+    const resp = await fetch('/songs/' + rowid + '/tracklist');
+    const data = await resp.json();
+
+    if (data.error) {
+      content.innerHTML = '<p class="text-xs" style="color: #d3869b;">' + escapeHtml(data.error) + '</p>';
+      return;
+    }
+
+    tracklistCache[rowid] = true;
+    const artist = data.artist || '';
+    const tracks = data.tracks || [];
+
+    if (tracks.length === 0) {
+      content.innerHTML = '<p class="text-xs" style="color: #585b70;">No tracks found.</p>';
+      return;
+    }
+
+    let html = '<table class="w-full" style="border-collapse: separate; border-spacing: 0;">';
+    html += '<thead><tr>';
+    html += '<th class="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; width: 40px;">#</th>';
+    html += '<th class="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70;">Title</th>';
+    html += '<th class="pb-2 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; width: 60px;">Time</th>';
+    html += '<th class="pb-2 text-right text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; width: 80px;"></th>';
+    html += '</tr></thead><tbody>';
+
+    for (const t of tracks) {
+      const searchQuery = encodeURIComponent(artist + ' ' + t.title);
+      html += '<tr class="transition-colors" style="border-top: 1px solid #2a2a3c22;" onmouseover="this.style.background=\'rgba(231,138,78,0.04)\'" onmouseout="this.style.background=\'transparent\'">';
+      html += '<td class="py-1.5 text-xs" style="color: #585b70;">' + escapeHtml(t.position) + '</td>';
+      html += '<td class="py-1.5 text-sm" style="color: #a6adc8;">' + escapeHtml(t.title) + '</td>';
+      html += '<td class="py-1.5 text-xs" style="color: #585b70;">' + escapeHtml(t.duration || '') + '</td>';
+      html += '<td class="py-1.5 text-right">';
+      html += '<a href="/search/' + rowid + '?q=' + searchQuery + '" onclick="event.stopPropagation();"';
+      html += ' class="btn-press inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors"';
+      html += ' style="color: #89b4fa; background: rgba(137,180,250,0.1); border: 1px solid rgba(137,180,250,0.2);">';
+      html += '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>';
+      html += 'Search</a></td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    content.innerHTML = html;
+
+  } catch (err) {
+    content.innerHTML = '<p class="text-xs" style="color: #d3869b;">Failed to load: ' + escapeHtml(err.message) + '</p>';
+  }
+}
+</script>
+{% endif %}
+
+{% endblock %}

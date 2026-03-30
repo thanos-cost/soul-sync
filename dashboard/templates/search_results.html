@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+{% from "macros.html" import status_badge %}
+
+{% block title %}Search: {{ song.artist }} — {{ song.title }}{% endblock %}
+
+{% block content %}
+
+<!-- Back link -->
+<div class="mb-4">
+  <a href="{{ url_for('songs.source_view', source_type=song.source_type) }}"
+     class="inline-flex items-center gap-1 text-sm transition-colors" style="color: #6c7086;">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+    Back to songs
+  </a>
+</div>
+
+<!-- Song info -->
+<div class="mb-6">
+  <h1 class="text-xl font-semibold" style="color: #cdd6f4;">Manual Search</h1>
+  <p class="mt-1 text-sm" style="color: #a6adc8;">
+    {{ song.artist or 'Unknown' }} &mdash; {{ song.title }}
+    {{ status_badge(song.status) }}
+  </p>
+</div>
+
+<!-- Search form -->
+<form id="searchForm" class="flex items-center gap-3 mb-6">
+  <input type="text" id="searchQuery" value="{{ query }}"
+         class="flex-1 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500"
+         style="background: #1a1a24; border: 1px solid #2a2a3c; color: #cdd6f4;"
+         placeholder="Search query..." />
+  <button type="submit" id="searchBtn"
+          class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-lg shadow-sm transition-colors"
+          style="background: #e78a4e; color: #0f0f14;">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    Search
+  </button>
+</form>
+
+{% if not configured %}
+<div class="mb-6 p-4 rounded-lg" style="background: rgba(211,134,155,0.1); border: 1px solid rgba(211,134,155,0.2);">
+  <p class="text-sm" style="color: #d3869b;">slskd connection not configured. Set SLSKD_HOST and SLSKD_API_KEY environment variables.</p>
+</div>
+{% endif %}
+
+<!-- Error display -->
+<div id="errorBox" class="hidden mb-6 p-4 rounded-lg" style="background: rgba(211,134,155,0.1); border: 1px solid rgba(211,134,155,0.2);">
+  <p id="errorMsg" class="text-sm" style="color: #d3869b;"></p>
+</div>
+
+<!-- Loading — Waveform bars -->
+<div id="loading" class="hidden px-6 py-12 text-center">
+  <div class="mx-auto mb-3 flex items-end justify-center gap-[3px] h-12">
+    <div class="w-1 rounded-full waveform-bar" style="height: 40%; background: #e78a4e; animation-delay: 0s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 70%; background: #e78a4e; animation-delay: 0.1s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 55%; background: #e78a4e; animation-delay: 0.2s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 85%; background: #e78a4e; animation-delay: 0.3s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 45%; background: #e78a4e; animation-delay: 0.4s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 90%; background: #d3869b; animation-delay: 0.15s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 60%; background: #d3869b; animation-delay: 0.25s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 75%; background: #d3869b; animation-delay: 0.35s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 50%; background: #7daea3; animation-delay: 0.05s;"></div>
+    <div class="w-1 rounded-full waveform-bar" style="height: 65%; background: #7daea3; animation-delay: 0.2s;"></div>
+  </div>
+  <p class="text-sm" style="color: #cdd6f4;">Digging through the network...</p>
+  <p class="mt-1 text-xs" style="color: #585b70;">Asking around — this usually takes 10-15 seconds</p>
+</div>
+
+<!-- Results container -->
+<div id="resultCount" class="hidden text-sm mb-3" style="color: #6c7086;"></div>
+
+<div id="resultsTable" class="hidden rounded-xl overflow-hidden" style="background: #1a1a24; border: 1px solid #2a2a3c;">
+  <table class="min-w-full" style="border-collapse: separate; border-spacing: 0;">
+    <thead>
+      <tr style="background: #151520;">
+        <th data-sort="file" class="sr-sort px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">File</th>
+        <th data-sort="folder" class="sr-sort px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Folder</th>
+        <th data-sort="quality" class="sr-sort px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Quality</th>
+        <th data-sort="size" class="sr-sort px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Size</th>
+        <th data-sort="user" class="sr-sort px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">User</th>
+        <th data-sort="speed" class="sr-sort px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Speed</th>
+        <th data-sort="slot" class="sr-sort px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none" style="color: #585b70; border-bottom: 1px solid #2a2a3c;">Slot</th>
+        <th class="px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70; border-bottom: 1px solid #2a2a3c;"></th>
+      </tr>
+    </thead>
+    <tbody id="resultsBody">
+    </tbody>
+  </table>
+</div>
+
+<!-- Empty state -->
+<div id="emptyState" class="hidden px-6 py-16 text-center rounded-xl" style="background: #1a1a24; border: 1px dashed #2a2a3c;">
+  <div class="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3" style="background: #2a2a3c;">
+    <svg class="w-6 h-6" style="color: #585b70;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+  </div>
+  <p class="text-sm font-medium" style="color: #cdd6f4;">Nothing in the crates</p>
+  <p class="text-xs mt-1" style="color: #585b70;">No peers have this one. Try a different query<br>or check back later — new sources come online daily.</p>
+</div>
+
+<script>
+const SONG_ID = {{ song.rowid }};
+const API_URL = `/search/${SONG_ID}/api`;
+const ENQUEUE_URL = `/search/${SONG_ID}/enqueue`;
+const FOLDER_URL = `/search/${SONG_ID}/folder`;
+const ENQUEUE_FOLDER_URL = `/search/${SONG_ID}/enqueue-folder`;
+
+let allResults = [];
+let srSortKey = null;
+let srSortDir = 'asc';
+
+const TIER_COLORS = {
+  0: ['rgba(125,174,163,0.15)', '#7daea3', '#7daea3'],
+  1: ['rgba(137,180,250,0.15)', '#89b4fa', '#89b4fa'],
+  2: ['rgba(108,112,134,0.15)', '#6c7086', '#6c7086'],
+};
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function escapeAttr(text) {
+  return String(text).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function sortResults(list) {
+  if (!srSortKey) return list;
+  const sorted = [...list];
+  sorted.sort((a, b) => {
+    let va, vb;
+    switch (srSortKey) {
+      case 'file': va = a.basename.toLowerCase(); vb = b.basename.toLowerCase(); break;
+      case 'folder': va = (a.folder || '').toLowerCase(); vb = (b.folder || '').toLowerCase(); break;
+      case 'quality': va = a.tier; vb = b.tier; break;
+      case 'size': va = a.size; vb = b.size; break;
+      case 'user': va = a.username.toLowerCase(); vb = b.username.toLowerCase(); break;
+      case 'speed': va = a.upload_speed || 0; vb = b.upload_speed || 0; break;
+      case 'slot': va = a.has_free_slot ? 0 : 1; vb = b.has_free_slot ? 0 : 1; break;
+      default: return 0;
+    }
+    if (va < vb) return srSortDir === 'asc' ? -1 : 1;
+    if (va > vb) return srSortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function renderResults() {
+  const results = sortResults(allResults);
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = '';
+
+  for (const r of results) {
+    const colors = TIER_COLORS[r.tier] || TIER_COLORS[2];
+    const slotBadge = r.has_free_slot
+      ? '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md" style="background: rgba(125,174,163,0.15); color: #7daea3; box-shadow: inset 0 0 0 1px #7daea322;"><span class="w-1.5 h-1.5 rounded-full" style="background: #7daea3;"></span>Free</span>'
+      : '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md" style="background: rgba(108,112,134,0.15); color: #6c7086; box-shadow: inset 0 0 0 1px #6c708622;"><span class="w-1.5 h-1.5 rounded-full" style="background: #6c7086;"></span>Queued</span>';
+    const bitrateInfo = r.bitrate ? `<span class="ml-1 text-xs" style="color: #585b70;">${r.bitrate}kbps</span>` : '';
+
+    const row = document.createElement('tr');
+    row.className = 'transition-colors';
+    row.style.borderBottom = '1px solid #2a2a3c';
+    row.onmouseover = function() { this.style.background = 'rgba(231,138,78,0.04)'; };
+    row.onmouseout = function() { this.style.background = 'transparent'; };
+    row.innerHTML = `
+      <td class="px-4 py-3.5 text-sm font-medium expandable truncate max-w-[280px]" style="color: #cdd6f4;" title="${escapeAttr(r.filename)}">${escapeHtml(r.basename)}</td>
+      <td class="px-4 py-3.5 text-sm expandable truncate max-w-[200px]" style="color: #a6adc8;" title="${escapeAttr(r.folder)}">${escapeHtml(r.folder)}</td>
+      <td class="px-4 py-3.5"><span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-md" style="background: ${colors[0]}; color: ${colors[1]}; box-shadow: inset 0 0 0 1px ${colors[2]}22;"><span class="w-1.5 h-1.5 rounded-full" style="background: ${colors[2]};"></span>${escapeHtml(r.tier_label)}</span>${bitrateInfo}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${escapeHtml(r.size_display)}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${escapeHtml(r.username)}</td>
+      <td class="px-4 py-3.5 text-sm" style="color: #a6adc8;">${escapeHtml(r.speed_display)}</td>
+      <td class="px-4 py-3.5">${slotBadge}</td>
+      <td class="px-4 py-3.5">
+        <div class="flex items-center gap-1.5">
+          <button data-username="${escapeAttr(r.username)}" data-directory="${escapeAttr(getDirectory(r.filename))}" class="folder-btn inline-flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-lg transition-colors" style="background: rgba(137,180,250,0.15); color: #89b4fa;" title="Browse full folder">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+          </button>
+          <button data-username="${escapeAttr(r.username)}" data-filename="${escapeAttr(r.filename)}" data-size="${r.size}" class="dl-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors" style="background: #e78a4e; color: #0f0f14;">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download
+          </button>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(row);
+  }
+}
+
+function getDirectory(filename) {
+  // Extract full parent directory path from a Windows-style Soulseek path
+  const lastSlash = filename.lastIndexOf('\\');
+  return lastSlash >= 0 ? filename.substring(0, lastSlash) : filename;
+}
+
+async function doSearch() {
+  const query = document.getElementById('searchQuery').value.trim();
+  if (!query) return;
+
+  document.getElementById('loading').classList.remove('hidden');
+  document.getElementById('errorBox').classList.add('hidden');
+  document.getElementById('resultsTable').classList.add('hidden');
+  document.getElementById('resultCount').classList.add('hidden');
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('searchBtn').disabled = true;
+  document.getElementById('searchBtn').innerHTML = '<div class="flex items-end gap-[2px] h-4"><div class="w-0.5 rounded-full waveform-bar" style="height: 40%; background: #0f0f14;"></div><div class="w-0.5 rounded-full waveform-bar" style="height: 70%; background: #0f0f14; animation-delay: 0.1s;"></div><div class="w-0.5 rounded-full waveform-bar" style="height: 55%; background: #0f0f14; animation-delay: 0.2s;"></div><div class="w-0.5 rounded-full waveform-bar" style="height: 85%; background: #0f0f14; animation-delay: 0.3s;"></div><div class="w-0.5 rounded-full waveform-bar" style="height: 45%; background: #0f0f14; animation-delay: 0.4s;"></div></div> Searching...';
+
+  try {
+    const resp = await fetch(`${API_URL}?q=${encodeURIComponent(query)}`);
+    const data = await resp.json();
+
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('searchBtn').disabled = false;
+    document.getElementById('searchBtn').innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Search';
+
+    if (data.error) {
+      document.getElementById('errorMsg').textContent = data.error;
+      document.getElementById('errorBox').classList.remove('hidden');
+      return;
+    }
+
+    allResults = data.results || [];
+
+    if (allResults.length === 0) {
+      document.getElementById('emptyState').classList.remove('hidden');
+      return;
+    }
+
+    const count = allResults.length;
+    document.getElementById('resultCount').textContent =
+      `${count} result${count !== 1 ? 's' : ''} found — best quality first`;
+    document.getElementById('resultCount').classList.remove('hidden');
+
+    renderResults();
+    document.getElementById('resultsTable').classList.remove('hidden');
+
+  } catch (err) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('searchBtn').disabled = false;
+    document.getElementById('searchBtn').innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg> Search';
+    document.getElementById('errorMsg').textContent = `Search failed: ${err.message}`;
+    document.getElementById('errorBox').classList.remove('hidden');
+  }
+}
+
+// Sort headers
+document.querySelectorAll('.sr-sort').forEach(th => {
+  th.addEventListener('click', function() {
+    const key = this.dataset.sort;
+    if (srSortKey === key) {
+      srSortDir = srSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      srSortKey = key;
+      srSortDir = 'asc';
+    }
+    document.querySelectorAll('.sr-sort').forEach(h => h.classList.remove('sort-asc', 'sort-desc'));
+    this.classList.add(srSortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+    renderResults();
+  });
+});
+
+// Form submit
+document.getElementById('searchForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  doSearch();
+});
+
+async function enqueueDownload(btn) {
+  const username = btn.dataset.username;
+  const filename = btn.dataset.filename;
+  const size = btn.dataset.size;
+
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  try {
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('filename', filename);
+    formData.append('size', size);
+    const resp = await fetch(ENQUEUE_URL, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      body: formData,
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg> Queued';
+      btn.style.background = 'rgba(125,174,163,0.2)';
+      btn.style.color = '#7daea3';
+      showToast(data.message || 'Download queued', 'success');
+    } else {
+      showToast(data.error || 'Enqueue failed', 'error');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  } catch (err) {
+    showToast('Enqueue failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+}
+
+async function browseFolder(btn) {
+  const username = btn.dataset.username;
+  const directory = btn.dataset.directory;
+  const row = btn.closest('tr');
+
+  // Toggle: if detail row already exists, remove it
+  const existingDetail = row.nextElementSibling;
+  if (existingDetail && existingDetail.classList.contains('folder-detail-row')) {
+    existingDetail.remove();
+    btn.style.background = 'rgba(137,180,250,0.15)';
+    return;
+  }
+
+  // Show loading state
+  btn.disabled = true;
+  btn.innerHTML = '<div class="flex items-end gap-[2px] h-3.5"><div class="w-0.5 rounded-full waveform-bar" style="height: 40%; background: #89b4fa;"></div><div class="w-0.5 rounded-full waveform-bar" style="height: 70%; background: #89b4fa; animation-delay: 0.1s;"></div><div class="w-0.5 rounded-full waveform-bar" style="height: 55%; background: #89b4fa; animation-delay: 0.2s;"></div></div>';
+
+  try {
+    const resp = await fetch(`${FOLDER_URL}?username=${encodeURIComponent(username)}&directory=${encodeURIComponent(directory)}`);
+    const data = await resp.json();
+
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
+
+    if (data.error) {
+      showToast(data.error, 'error');
+      return;
+    }
+
+    if (!data.files || data.files.length === 0) {
+      showToast('No files found in folder', 'error');
+      return;
+    }
+
+    btn.style.background = 'rgba(137,180,250,0.3)';
+
+    // Build the detail row
+    const detailRow = document.createElement('tr');
+    detailRow.className = 'folder-detail-row';
+    const td = document.createElement('td');
+    td.colSpan = 8;
+    td.style.cssText = 'padding: 0; background: #151520; border-bottom: 1px solid #2a2a3c;';
+
+    let fileRows = '';
+    for (const f of data.files) {
+      const extUpper = (f.extension || '').toUpperCase();
+      fileRows += `
+        <tr style="border-bottom: 1px solid #1a1a24;">
+          <td class="px-4 py-2 text-xs" style="color: #cdd6f4;">${escapeHtml(f.basename)}</td>
+          <td class="px-4 py-2 text-xs" style="color: #a6adc8;">${escapeHtml(extUpper)}</td>
+          <td class="px-4 py-2 text-xs" style="color: #a6adc8;">${escapeHtml(f.size_display)}</td>
+          <td class="px-2 py-2 text-right">
+            <button class="dl-file-btn inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors"
+                    data-username="${escapeAttr(username)}" data-filename="${escapeAttr(f.filename)}" data-size="${f.size}"
+                    style="background: rgba(231,138,78,0.15); color: #e78a4e;">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </button>
+          </td>
+        </tr>`;
+    }
+
+    td.innerHTML = `
+      <div class="px-4 py-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-medium" style="color: #89b4fa;">
+            <svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+            ${escapeHtml(directory.split('\\').pop())} &mdash; ${data.count} files
+          </span>
+          <button class="dl-folder-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm transition-colors"
+                  data-username="${escapeAttr(username)}"
+                  style="background: #e78a4e; color: #0f0f14;">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download All (${data.count} files)
+          </button>
+        </div>
+        <div class="rounded-lg overflow-hidden" style="border: 1px solid #2a2a3c;">
+          <table class="min-w-full">
+            <thead>
+              <tr style="background: #1a1a24;">
+                <th class="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70;">File</th>
+                <th class="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70;">Type</th>
+                <th class="px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70;">Size</th>
+                <th class="px-2 py-2 text-right text-[10px] font-semibold uppercase tracking-wider" style="color: #585b70;"></th>
+              </tr>
+            </thead>
+            <tbody>${fileRows}</tbody>
+          </table>
+        </div>
+      </div>`;
+
+    // Stash the file data on the button for the enqueue action
+    const dlFolderBtn = td.querySelector('.dl-folder-btn');
+    dlFolderBtn._folderFiles = data.files;
+
+    detailRow.appendChild(td);
+    row.after(detailRow);
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>';
+    showToast('Browse failed: ' + err.message, 'error');
+  }
+}
+
+async function enqueueFolderDownload(btn) {
+  const username = btn.dataset.username;
+  const files = btn._folderFiles;
+
+  if (!files || files.length === 0) return;
+
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  btn.innerHTML = '<div class="flex items-end gap-[2px] h-3.5"><div class="w-0.5 rounded-full waveform-bar" style="height: 40%; background: #0f0f14;"></div><div class="w-0.5 rounded-full waveform-bar" style="height: 70%; background: #0f0f14; animation-delay: 0.1s;"></div><div class="w-0.5 rounded-full waveform-bar" style="height: 55%; background: #0f0f14; animation-delay: 0.2s;"></div></div> Queueing...';
+
+  try {
+    const resp = await fetch(ENQUEUE_FOLDER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({
+        username: username,
+        files: files.map(f => ({ filename: f.filename, size: f.size })),
+      }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg> Queued ${data.count} files`;
+      btn.style.background = 'rgba(125,174,163,0.2)';
+      btn.style.color = '#7daea3';
+      btn.style.opacity = '1';
+      showToast(data.message || `Queued ${data.count} files`, 'success');
+    } else {
+      showToast(data.error || 'Enqueue failed', 'error');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Download All`;
+    }
+  } catch (err) {
+    showToast('Enqueue failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Download All`;
+  }
+}
+
+async function enqueueSingleFile(btn) {
+  const username = btn.dataset.username;
+  const filename = btn.dataset.filename;
+  const size = parseInt(btn.dataset.size, 10);
+
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+
+  try {
+    const resp = await fetch(ENQUEUE_FOLDER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ username, files: [{ filename, size }] }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      btn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>';
+      btn.style.background = 'rgba(125,174,163,0.2)';
+      btn.style.color = '#7daea3';
+      btn.style.opacity = '1';
+      showToast('Queued file', 'success');
+    } else {
+      showToast(data.error || 'Enqueue failed', 'error');
+      btn.disabled = false;
+      btn.style.opacity = '1';
+    }
+  } catch (err) {
+    showToast('Enqueue failed: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+}
+
+// Delegated click handler for all buttons — avoids inline onclick
+// so filenames with backslashes survive without JS string escaping issues.
+document.addEventListener('click', function(e) {
+  const dlBtn = e.target.closest('.dl-btn');
+  if (dlBtn && !dlBtn.disabled) { enqueueDownload(dlBtn); return; }
+
+  const folderBtn = e.target.closest('.folder-btn');
+  if (folderBtn && !folderBtn.disabled) { browseFolder(folderBtn); return; }
+
+  const dlFolderBtn = e.target.closest('.dl-folder-btn');
+  if (dlFolderBtn && !dlFolderBtn.disabled) { enqueueFolderDownload(dlFolderBtn); return; }
+
+  const dlFileBtn = e.target.closest('.dl-file-btn');
+  if (dlFileBtn && !dlFileBtn.disabled) { enqueueSingleFile(dlFileBtn); return; }
+});
+
+// Auto-search on page load
+{% if configured %}
+doSearch();
+{% endif %}
+</script>
+
+{% endblock %}

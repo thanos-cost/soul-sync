@@ -1,0 +1,30 @@
+# slskd configuration — copy to slskd.yml before first run
+# Credentials are injected from .env via docker-compose.yml
+
+soulseek:
+  username: ""  # Set via SLSKD_SLSK_USERNAME env var (see .env)
+  password: ""  # Set via SLSKD_SLSK_PASSWORD env var (see .env)
+
+directories:
+  downloads: /downloads
+  incomplete: /app/incomplete
+
+shares:
+  directories:
+    - /share
+  filters:
+    - \.DS_Store$
+    - \.ini$
+    - Thumbs\.db$
+
+web:
+  port: 5030
+  authentication:
+    api_keys:
+      automator:
+        key: "PASTE_YOUR_API_KEY_HERE"  # Must match SLSKD_API_KEY in .env
+        role: readwrite
+        cidr: "0.0.0.0/0,::/0"
+
+logger:
+  disk: true
