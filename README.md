@@ -122,13 +122,11 @@ Sync your vinyl collection or wantlist:
 
 Browse all your sources in the sidebar. Each source shows metric cards (total, downloaded, pending, failed) and a searchable/filterable song table. Click **Search** on any song to manually search Soulseek.
 
-![Dashboard](docs/screenshots/dashboard-sources.png)
+![Dashboard](docs/screenshots/dashboard-sources-2.png)
 
 ### Downloads
 
 Real-time view of active downloads from Soulseek — see progress, speed, file sizes, and peer names.
-
-![Downloads](docs/screenshots/dashboard-downloads.png)
 
 ### Manual Search
 
