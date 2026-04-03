@@ -463,18 +463,24 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
     for album in pending:
         source_id = album["source_id"]
         title = album.get("title", "")
+        db_artist = album.get("artist", "")
 
         # Mark as 'searching' before network activity
         update_song_status(conn, source_id, "searching")
 
-        # Split "Artist - Album" title into components
-        if " - " in title:
+        # Determine artist and album name.
+        # Newer adapters (Discogs) store artist and title separately in the DB.
+        # Older entries may have "Artist - Album" combined in the title column.
+        # Prefer the DB artist column when available; fall back to splitting title.
+        if db_artist:
+            artist = db_artist
+            album_name = title
+        elif " - " in title:
             artist, album_name = title.split(" - ", 1)
         else:
-            # Unexpected format — use title as-is for both
             artist = ""
             album_name = title
-            log.warning("Album title has no ' - ' separator: %r — using as album name", title)
+            log.warning("Album title has no ' - ' separator and no artist: %r", title)
 
         log.info("Searching album: %s - %s", artist, album_name)
 
