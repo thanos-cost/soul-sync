@@ -15,8 +15,14 @@ Config dict from sources table:
 
 import logging
 import os
+import re
 
 log = logging.getLogger(__name__)
+
+
+def _clean_discogs_artist(name: str) -> str:
+    """Strip Discogs disambiguation suffix like ' (2)' or ' (25)' from artist names."""
+    return re.sub(r'\s+\(\d+\)$', '', name)
 
 
 class DiscogsAdapter:
@@ -101,7 +107,8 @@ class DiscogsAdapter:
                 title = info.get("title", "").strip()
                 artists = info.get("artists", [])
                 artist = ", ".join(
-                    a.get("name", "") for a in artists if a.get("name")
+                    _clean_discogs_artist(a.get("name", ""))
+                    for a in artists if a.get("name")
                 )
 
                 if not release_id or not title:
