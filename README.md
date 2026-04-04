@@ -65,6 +65,18 @@ Point it at your YouTube playlists, Spotify playlists, Discogs collection, or a 
 
 The pipeline runs once immediately on startup, then daily at midnight (configurable in the dashboard settings).
 
+### Updating
+
+To pull the latest version:
+
+```bash
+cd soul-sync
+git pull
+docker compose up -d --build
+```
+
+Your `.env`, database, and downloads are preserved — only the application code is updated.
+
 ## Adding Sources
 
 ### YouTube
