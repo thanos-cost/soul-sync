@@ -57,12 +57,15 @@ def build_album_query(title: str) -> str:
 
 # Common English words that inflate match scores without indicating a real match.
 # "the lemonheads - it's a shame about ray" matched "it's about time" via these.
+# Note: music-meaningful words (ep, vol, remix, mix, edit) are intentionally kept
+# OUT of this list — they carry real signal for vinyl/electronic releases where
+# album names are often short ("Alien", "Cheebah EP").
 STOP_WORDS = {
     "a", "an", "the", "of", "in", "on", "at", "to", "for", "by", "is", "it",
     "its", "s", "and", "or", "not", "no", "with", "from", "as", "but", "be",
-    "was", "are", "has", "had", "have", "my", "your", "all", "vol", "volume",
-    "ep", "lp", "cd", "pt", "part", "feat", "ft", "remix", "mix", "edit",
-    "version", "deluxe", "remaster", "remastered", "edition",
+    "was", "are", "has", "had", "have", "my", "your", "all",
+    "lp", "cd", "pt", "part", "feat", "ft",
+    "deluxe", "remaster", "remastered", "edition",
 }
 
 
@@ -167,28 +170,31 @@ def _find_matching_folders(
     browse_result: dict,
     artist: str,
     album: str,
-    min_album_score: int = 2,
 ) -> list[dict]:
     """
     Find folders in a peer's browse result that match the target album.
 
     A folder must pass TWO gates:
       1. Artist gate — all meaningful artist words must appear in the full path
-      2. Album score — at least min_album_score meaningful album words must
-         overlap with the leaf folder name (stop words excluded)
+      2. Album score — at least min_score meaningful album words must overlap
+         with the leaf folder name (stop words excluded)
 
-    This prevents false positives like matching "The Lemonheads - It's a Shame
-    About Ray" when searching for "Yukihiro Fukutomi - It's About Time".
+    min_score is dynamic: if the album name has only 1 meaningful word (e.g.
+    "Alien", "Bassline"), we accept score=1. For albums with 2+ meaningful
+    words, we require score=2. The artist gate already prevents false positives.
 
     Parameters:
-        browse_result   — raw browse response dict from slskd users.browse()
-        artist          — target artist name
-        album           — target album name
-        min_album_score — minimum meaningful word overlap for album (default 2)
+        browse_result — raw browse response dict from slskd users.browse()
+        artist        — target artist name
+        album         — target album name
 
     Returns a list of dicts sorted by score (desc) then audio count (desc):
         [{"directory": dir_dict, "score": int, "audio_count": int}, ...]
     """
+    # Dynamic threshold: accept score=1 for single-word album names
+    album_words = _meaningful_words(album)
+    min_score = min(len(album_words), 2) if album_words else 1
+
     candidates = []
     directories = browse_result.get("directories", [])
 
@@ -201,7 +207,7 @@ def _find_matching_folders(
             continue
 
         # Gate 2: enough meaningful album words must overlap
-        if album_score < min_album_score:
+        if album_score < min_score:
             continue
 
         audio_count = _count_audio_files(directory)
@@ -319,7 +325,11 @@ def search_album(
     Returns a list of up to MAX_PEERS_TO_BROWSE dicts: [{"username": str}, ...]
     Returns an empty list if no results are found or an error occurs.
     """
-    query = build_album_query(f"{artist} - {album}")
+    # For multi-artist releases (e.g. "Joutro Mundo, JKriv"), use only the first
+    # artist in the search query. Including all artists makes the query too specific
+    # and returns 0 results. The full artist string is still used for folder matching.
+    search_artist = artist.split(",")[0].strip() if "," in artist else artist
+    query = build_album_query(f"{search_artist} - {album}")
     log.info("Album search: %r (query=%r)", f"{artist} - {album}", query)
 
     try:

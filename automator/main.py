@@ -191,6 +191,7 @@ def run_source_sync(conn, sources: list, log: logging.Logger) -> tuple[int, list
 
 QUEUE_CAP = 1000        # Safety net: stop queueing if slskd already has 1000+ non-terminal transfers
 SEARCH_DELAY_S = 2      # Seconds to sleep between search calls (be a polite API user)
+MAX_CONSECUTIVE_ERRORS = 3  # Abort loop early if slskd appears down (circuit breaker)
 
 
 def _strip_paren_symbols(text: str) -> str:
@@ -300,6 +301,7 @@ def run_download_loop(conn, client, log: logging.Logger) -> int:
     not_found = 0
     no_match = 0
     cap_skipped = 0
+    consecutive_errors = 0
 
     for song in pending:
         source_id = song["source_id"]
@@ -348,6 +350,7 @@ def run_download_loop(conn, client, log: logging.Logger) -> int:
                     time.sleep(SEARCH_DELAY_S)
 
             searched += 1
+            consecutive_errors = 0  # reset on any successful search cycle
 
             # Handle outcome
             if best_result:
@@ -400,7 +403,7 @@ def run_download_loop(conn, client, log: logging.Logger) -> int:
                 no_match += 1
 
         except Exception:
-            # Don't let one failed song abort the whole batch
+            consecutive_errors += 1
             log.error(
                 "  Error searching %s - %s — skipping",
                 artist, title, exc_info=True,
@@ -410,6 +413,13 @@ def run_download_loop(conn, client, log: logging.Logger) -> int:
                 update_song_status(conn, source_id, "new")
             except Exception:
                 pass
+
+            if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                log.error(
+                    "Aborting track download loop — %d consecutive errors (slskd may be down)",
+                    consecutive_errors,
+                )
+                break
 
     # End-of-run summary
     log.info(
@@ -459,6 +469,7 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
     log.info("Found %d pending album(s) to search", len(pending))
 
     albums_enqueued = 0
+    consecutive_errors = 0
 
     for album in pending:
         source_id = album["source_id"]
@@ -494,6 +505,7 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
 
             if result is None:
                 # No matching folder found — increment retry counter
+                consecutive_errors = 0  # not a connection error, reset breaker
                 new_attempts = increment_search_attempts(conn, source_id)
                 if new_attempts >= 10:
                     mark_album_not_found(conn, source_id)
@@ -527,6 +539,7 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
                     artist, album_name, username, inserted,
                 )
                 albums_enqueued += 1
+                consecutive_errors = 0  # reset on success
             else:
                 # Enqueue failed — reset to 'new' for retry
                 update_song_status(conn, source_id, "new")
@@ -536,6 +549,7 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
                 )
 
         except Exception:
+            consecutive_errors += 1
             log.error(
                 "Error processing album %s - %s — skipping",
                 artist, album_name, exc_info=True,
@@ -545,6 +559,13 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
                 update_song_status(conn, source_id, "new")
             except Exception:
                 pass
+
+            if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                log.error(
+                    "Aborting album download loop — %d consecutive errors (slskd may be down)",
+                    consecutive_errors,
+                )
+                break
 
         time.sleep(SEARCH_DELAY_S)
 
