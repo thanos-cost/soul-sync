@@ -354,11 +354,13 @@ def main():
             wait_seconds / 3600,
         )
 
-        # Sleep in 10-second increments — responsive to SIGUSR1 and DB trigger flags
-        elapsed = 0
-        while elapsed < wait_seconds:
+        # Sleep until next_run by wall-clock time, not accumulated time.asleep().
+        # If the host (e.g. macOS laptop) sleeps, the Docker VM pauses and an
+        # elapsed-seconds counter would freeze — causing the scheduler to drift
+        # days behind the schedule. Comparing datetime.now() to next_run means
+        # we fire immediately on wake if the target time has already passed.
+        while datetime.now() < next_run:
             time.sleep(10)
-            elapsed += 10
             if _run_now:
                 break
 
