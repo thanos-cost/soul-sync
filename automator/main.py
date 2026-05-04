@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from state import (
     init_db, add_songs, get_pending_songs,
     update_song_status, get_not_found_songs, get_no_match_songs, get_stalled_songs,
+    get_not_found_albums, reset_album_for_retry,
     get_downloaded_mp3s, get_known_ids, set_setting, get_failed_peers,
 )
 import slskd_client
@@ -456,7 +457,7 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
         get_pending_albums,
         insert_album_files,
         mark_album_not_found,
-        increment_search_attempts,
+        get_search_attempts,
     )
 
     log.info("=== Album Download Loop ===")
@@ -504,21 +505,23 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
             result = run_album_search(client, artist, album_name, log, excluded_peers=failed_peers or None)
 
             if result is None:
-                # No matching folder found — increment retry counter
+                # No matching folder found. update_song_status('searching') above
+                # already incremented search_attempts; read the current value to
+                # decide whether the budget is exhausted.
                 consecutive_errors = 0  # not a connection error, reset breaker
-                new_attempts = increment_search_attempts(conn, source_id)
-                if new_attempts >= 10:
+                attempts = get_search_attempts(conn, source_id)
+                if attempts >= 10:
                     mark_album_not_found(conn, source_id)
                     log.warning(
                         "Album not found after %d attempts — marking not_found: %s - %s",
-                        new_attempts, artist, album_name,
+                        attempts, artist, album_name,
                     )
                 else:
                     # Reset to 'new' so it will be retried on the next run
                     update_song_status(conn, source_id, "new")
                     log.info(
                         "Album search: no result for %s - %s (attempt %d/10)",
-                        artist, album_name, new_attempts,
+                        artist, album_name, attempts,
                     )
                 continue
 
@@ -643,6 +646,25 @@ def run_retry_searches(conn, client, log: logging.Logger) -> None:
         )
     else:
         log.info("Retry: no stalled songs eligible for re-search (cooldown %dd)", COOLDOWN_DAYS)
+
+    # --- Part 1d: Reset not_found albums for re-search (7-day cooldown) ---
+    # Albums use a 10-attempt budget per cycle. When the cooldown elapses we
+    # restore them to status='new' AND zero search_attempts so they get a fresh
+    # budget on the next run, and clear failed_peers so we re-explore the peer
+    # pool. Without the budget reset they would be filtered out by
+    # get_pending_albums() (status='new' AND search_attempts<10) and never
+    # search again.
+    not_found_albums = get_not_found_albums(conn, cooldown_days=COOLDOWN_DAYS)
+    if not_found_albums:
+        for album in not_found_albums:
+            reset_album_for_retry(conn, album["source_id"])
+        log.info(
+            "Retry: resetting %d not_found album(s) for re-search "
+            "(cooldown %dd, attempts and failed_peers cleared)",
+            len(not_found_albums), COOLDOWN_DAYS,
+        )
+    else:
+        log.info("Retry: no not_found albums eligible for re-search (cooldown %dd)", COOLDOWN_DAYS)
 
     # --- Part 2: Quality upgrade check for MP3 downloads ---
     mp3_songs = get_downloaded_mp3s(conn)

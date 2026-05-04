@@ -292,6 +292,23 @@ def init_db(conn: sqlite3.Connection | None = None) -> sqlite3.Connection:
 
     conn.commit()
 
+    # Self-heal: unstick album rows whose search_attempts climbed past the cap
+    # while their status was 'new'. The earlier retry path reset such albums
+    # back to 'new' without resetting search_attempts, so get_pending_albums()
+    # filtered them out forever (status=new, attempts>=10 = invisible). We
+    # clear the budget and peer exclusions so they re-enter the loop fresh.
+    # Idempotent: after the fix, the retry path keeps these in sync, so this
+    # statement matches zero rows on subsequent startups.
+    conn.execute("""
+        UPDATE songs
+        SET search_attempts = 0,
+            failed_peers_json = NULL
+        WHERE search_mode = 'album'
+          AND status = 'new'
+          AND search_attempts >= 10
+    """)
+    conn.commit()
+
     # Backfill: when there's exactly one source per type, link existing songs.
     # This is safe and idempotent — only updates NULL source_table_id rows.
     try:
@@ -866,7 +883,9 @@ def get_downloaded_mp3s(conn: sqlite3.Connection) -> list[dict]:
 
 def get_not_found_songs(conn: sqlite3.Connection, cooldown_days: int = 7) -> list[dict]:
     """
-    Return songs that have never been found on Soulseek — candidates for retry.
+    Return track-mode songs that have never been found on Soulseek — candidates
+    for retry. Albums use a separate retry path (get_not_found_albums) because
+    they have a search_attempts budget that needs to reset on each cooldown.
 
     Phase 4 retry logic re-searches these, but with a cooldown to avoid hammering
     Soulseek for the same songs every run. Songs searched within the last
@@ -878,6 +897,7 @@ def get_not_found_songs(conn: sqlite3.Connection, cooldown_days: int = 7) -> lis
         SELECT *
         FROM songs
         WHERE status = 'not_found'
+          AND (search_mode = 'track' OR search_mode IS NULL)
           AND (last_search_date IS NULL
                OR last_search_date < datetime('now', ? || ' days'))
         ORDER BY date_added ASC
@@ -887,7 +907,9 @@ def get_not_found_songs(conn: sqlite3.Connection, cooldown_days: int = 7) -> lis
 
 def get_stalled_songs(conn: sqlite3.Connection, cooldown_days: int = 7) -> list[dict]:
     """
-    Return songs stuck in stalled/stalled_waiting — candidates for auto-retry.
+    Return track-mode songs stuck in stalled/stalled_waiting — candidates for
+    auto-retry. Albums never enter these states (they go through 'downloading'
+    instead), so this query is track-only.
 
     With peer exclusion (failed_peers_json), retrying is safe because the system
     always picks a different peer. Songs searched within the last cooldown_days
@@ -899,6 +921,7 @@ def get_stalled_songs(conn: sqlite3.Connection, cooldown_days: int = 7) -> list[
         SELECT *
         FROM songs
         WHERE status IN ('stalled', 'stalled_waiting')
+          AND (search_mode = 'track' OR search_mode IS NULL)
           AND (last_search_date IS NULL
                OR last_search_date < datetime('now', ? || ' days'))
         ORDER BY date_added ASC
@@ -908,7 +931,9 @@ def get_stalled_songs(conn: sqlite3.Connection, cooldown_days: int = 7) -> list[
 
 def get_no_match_songs(conn: sqlite3.Connection, cooldown_days: int = 7) -> list[dict]:
     """
-    Return songs where results were found but none passed quality filters.
+    Return track-mode songs where results were found but none passed quality
+    filters. Albums never reach 'no_match' (folder selection produces a result
+    or None, which goes to the search_attempts path), so this query is track-only.
 
     Re-searched periodically because Soulseek users come and go — a song that
     had no quality match last week may have a new FLAC share today. Songs
@@ -920,11 +945,69 @@ def get_no_match_songs(conn: sqlite3.Connection, cooldown_days: int = 7) -> list
         SELECT *
         FROM songs
         WHERE status = 'no_match'
+          AND (search_mode = 'track' OR search_mode IS NULL)
           AND (last_search_date IS NULL
                OR last_search_date < datetime('now', ? || ' days'))
         ORDER BY date_added ASC
     """, (str(-cooldown_days),))
     return [dict(row) for row in cursor.fetchall()]
+
+
+def get_not_found_albums(conn: sqlite3.Connection, cooldown_days: int = 7) -> list[dict]:
+    """
+    Return album-mode entries currently marked not_found and past the cooldown.
+
+    Unlike track retries, an album retry must reset both the attempts budget
+    (search_attempts) and the peer exclusions (failed_peers_json) so the next
+    cycle gets a fresh shot. Use reset_album_for_retry() to perform the reset.
+
+    Returns all columns, ordered by date_added ASC (oldest first).
+    """
+    cursor = conn.execute("""
+        SELECT *
+        FROM songs
+        WHERE search_mode = 'album'
+          AND status = 'not_found'
+          AND (last_search_date IS NULL
+               OR last_search_date < datetime('now', ? || ' days'))
+        ORDER BY date_added ASC
+    """, (str(-cooldown_days),))
+    return [dict(row) for row in cursor.fetchall()]
+
+
+def reset_album_for_retry(conn: sqlite3.Connection, source_id: str) -> None:
+    """
+    Reset an album to the search-eligible state with a fresh budget.
+
+    Sets status='new', search_attempts=0, failed_peers_json=NULL so the album
+    re-enters get_pending_albums() and explores all available peers from
+    scratch. Called by the retry phase after an album's not_found cooldown
+    has elapsed.
+    """
+    conn.execute("""
+        UPDATE songs
+        SET status = 'new',
+            search_attempts = 0,
+            failed_peers_json = NULL
+        WHERE source_id = ?
+    """, (source_id,))
+    conn.commit()
+
+
+def get_search_attempts(conn: sqlite3.Connection, source_id: str) -> int:
+    """
+    Return the current search_attempts count for a song. NULL is returned as 0.
+
+    Used by the album loop after the auto-increment in update_song_status('searching')
+    so we can decide whether the budget is exhausted without performing a second
+    increment.
+    """
+    row = conn.execute(
+        "SELECT search_attempts FROM songs WHERE source_id = ?", (source_id,)
+    ).fetchone()
+    if not row:
+        return 0
+    return row["search_attempts"] or 0
 
 
 def get_songs_for_delivery(conn: sqlite3.Connection) -> list[dict]:
@@ -1178,34 +1261,6 @@ def update_album_file_status(
         )
     conn.commit()
     log.debug("Updated album_file id=%s -> status=%r", file_id, status)
-
-
-def increment_search_attempts(conn: sqlite3.Connection, source_id: str) -> int:
-    """
-    Increment search_attempts by 1 for an album that failed to find results.
-
-    Called after every failed album search. Once search_attempts reaches 10,
-    get_pending_albums() will no longer return this album, and
-    mark_album_not_found() should be called to set its final status.
-
-    Parameters:
-        conn      — open sqlite3.Connection
-        source_id — parent song source_id to increment
-
-    Returns the new value of search_attempts after incrementing.
-    """
-    conn.execute("""
-        UPDATE songs
-        SET search_attempts = COALESCE(search_attempts, 0) + 1
-        WHERE source_id = ?
-    """, (source_id,))
-    conn.commit()
-    row = conn.execute(
-        "SELECT search_attempts FROM songs WHERE source_id = ?", (source_id,)
-    ).fetchone()
-    new_count = row["search_attempts"] if row else 0
-    log.debug("Incremented search_attempts for %s -> %d", source_id, new_count)
-    return new_count
 
 
 def mark_album_not_found(conn: sqlite3.Connection, source_id: str) -> None:
