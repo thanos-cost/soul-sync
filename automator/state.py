@@ -663,6 +663,12 @@ def add_songs(conn: sqlite3.Connection, songs: list[dict]) -> int:
     Uses INSERT OR IGNORE so if a song was already stored (by source_id primary
     key), it is not overwritten. This makes the operation fully idempotent.
 
+    Rows where both artist and title are empty are dropped — these come from
+    parser failures (e.g. a YouTube video literally titled "31" that Haiku
+    can't identify). Inserting them would just produce a row that crashes
+    the track loop with a 400 Bad Request when it tries to search "" "" on
+    Soulseek.
+
     Parameters:
         songs: list of dicts with keys {source_id, source_type, search_mode,
                raw_title, artist, title, version (optional)}
@@ -674,8 +680,19 @@ def add_songs(conn: sqlite3.Connection, songs: list[dict]) -> int:
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    rows = [
-        (
+    rows = []
+    for song in songs:
+        artist = (song.get("artist") or "").strip()
+        title = (song.get("title") or "").strip()
+        if not artist and not title:
+            log.warning(
+                "Dropping unparseable entry from %s: source_id=%s raw_title=%r "
+                "(artist and title both empty)",
+                song.get("source_type", "?"), song.get("source_id"),
+                song.get("raw_title"),
+            )
+            continue
+        rows.append((
             song["source_id"],
             song.get("source_type", "youtube"),
             song.get("search_mode", "track"),
@@ -686,9 +703,7 @@ def add_songs(conn: sqlite3.Connection, songs: list[dict]) -> int:
             "new",
             now,
             song.get("source_table_id"),  # Phase 9.1: link to sources.id
-        )
-        for song in songs
-    ]
+        ))
 
     before = conn.total_changes
     conn.executemany("""
@@ -736,6 +751,10 @@ def get_pending_songs(conn: sqlite3.Connection) -> list[dict]:
     # the conceptual lifecycle described in CONTEXT.md. Do NOT query for
     # status='pending' — no such value exists in the database.
 
+    Defensive filter: rows with empty artist AND empty title are skipped
+    so legacy rows from earlier parser failures can't crash the track loop
+    with a 400 Bad Request when it searches an empty query string.
+
     Returns a list of dicts with: source_id, artist, title, raw_title.
     """
     cursor = conn.execute("""
@@ -743,6 +762,7 @@ def get_pending_songs(conn: sqlite3.Connection) -> list[dict]:
         FROM songs
         WHERE status = 'new'
           AND (search_mode = 'track' OR search_mode IS NULL)
+          AND (TRIM(COALESCE(artist, '')) != '' OR TRIM(COALESCE(title, '')) != '')
         ORDER BY date_added ASC
     """)
     return [dict(row) for row in cursor.fetchall()]
