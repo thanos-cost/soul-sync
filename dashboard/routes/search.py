@@ -311,10 +311,15 @@ def enqueue_folder(song_id):
 
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-        # Use the first file as the representative selected_filename
+        # Folder enqueue is semantically an album-mode download — multiple files
+        # tracked together. We promote the song to album mode so the album
+        # poller (which keys on search_mode='album' AND status='downloading')
+        # reconciles album_files state. Without this, status='queued' and the
+        # rows sit forever as orphans never seen by the poller.
         db.execute(
             """UPDATE songs
-               SET status = 'queued',
+               SET status = 'downloading',
+                   search_mode = 'album',
                    selected_filename = ?,
                    slsk_username = ?,
                    date_queued = ?

@@ -472,7 +472,13 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
     albums_enqueued = 0
     consecutive_errors = 0
 
-    for album in pending:
+    # Reconcile in-flight album downloads every N albums so transfers slskd
+    # finishes/fails mid-loop don't sit unmonitored for hours. With 200+
+    # pending albums and ~30s per cycle, the full loop takes 1-2h; without
+    # this, the post-loop poll is the only chance to update state.
+    ALBUM_POLL_INTERVAL = 10
+
+    for i, album in enumerate(pending):
         source_id = album["source_id"]
         title = album.get("title", "")
         db_artist = album.get("artist", "")
@@ -569,6 +575,23 @@ def run_album_download_loop(conn, client, log: logging.Logger) -> int:
                     consecutive_errors,
                 )
                 break
+
+        # Periodic mid-loop reconciliation: every ALBUM_POLL_INTERVAL albums,
+        # poll slskd and update album_files state. Long search loops would
+        # otherwise leave succeeded/failed transfers unreconciled until the
+        # post-loop poll, hours later. Wrapped in try/except — a poll failure
+        # must never abort the search loop.
+        if (i + 1) % ALBUM_POLL_INTERVAL == 0:
+            try:
+                from poller import poll_album_downloads
+                completed = poll_album_downloads(client, conn)
+                if completed:
+                    log.info(
+                        "Mid-loop album poll: %d album(s) completed (after %d searches)",
+                        completed, i + 1,
+                    )
+            except Exception:
+                log.warning("Mid-loop album poll failed — continuing", exc_info=True)
 
         time.sleep(SEARCH_DELAY_S)
 
